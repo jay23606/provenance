@@ -1,0 +1,34 @@
+# Accepted exceptions for the OSV-Scanner job in .github/workflows/security.yml.
+# Every entry needs a reason and an expiry — when ignoreUntil passes the finding
+# fails CI again and must be re-triaged.
+
+# --- vitest 3 (dev-only test runner) -----------------------------------------
+# Fixes require vitest 4 (major upgrade). Deliberately staying on v3 for now;
+# vitest/tinypool only run locally and in CI, never ship in the app bundle.
+
+[[IgnoredVulns]]
+id = "GHSA-82fw-gwwq-j7x9"
+ignoreUntil = 2027-01-12
+reason = "vitest / @vitest/mocker 3.2.7: dev-only test runner, fix requires vitest 4 major upgrade (deferred)."
+
+[[IgnoredVulns]]
+id = "GHSA-5gmw-xhrv-c9v3"
+ignoreUntil = 2027-01-12
+reason = "tinypool 1.1.1 via vitest 3: dev-only, fix (2.x) requires vitest 4 major upgrade (deferred)."
+
+[[IgnoredVulns]]
+id = "GHSA-85c8-ppgw-ccpr"
+ignoreUntil = 2027-01-12
+reason = "tinypool 1.1.1 via vitest 3: dev-only, fix (2.x) requires vitest 4 major upgrade (deferred)."
+
+# --- No upstream fix published -----------------------------------------------
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2027-01-12
+reason = "braces 3.0.3 via micromatch (build tooling): no patched version published yet."
+
+[[IgnoredVulns]]
+id = "GHSA-hp3w-g68c-fv3c"
+ignoreUntil = 2027-01-12
+reason = "sprintf-js 1.0.3 via argparse@1 (build tooling): no patched version published yet."

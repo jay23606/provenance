@@ -41,7 +41,9 @@ jobs:
     name: Dependency vulnerability scan (osv-scanner)
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8
     with:
+      # Accepted exceptions (with expiry dates) live in osv-scanner.toml.
       scan-args: |-
+        --config=./osv-scanner.toml
         --lockfile=./pnpm-lock.yaml
 
   lint-changed:
