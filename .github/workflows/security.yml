@@ -60,14 +60,15 @@ jobs:
           fetch-depth: 0
 
       - name: Setup pnpm
+        # pnpm version comes from package.json "packageManager" (single source
+        # of truth) — also setting `version:` here makes the action fail.
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Matches package.json "engines.node"; Capacitor CLI needs >= 22.
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -75,7 +76,9 @@ jobs:
 
       - name: Get changed TS/TSX files
         id: changed
-        uses: tj-actions/changed-files@v44
+        # Pinned to a commit SHA: this action's tags were repointed to
+        # malicious code in March 2025 (CVE-2025-30066).
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47.0.6
         with:
           files: |
             src/**/*.ts
