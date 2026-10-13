@@ -23,6 +23,7 @@ const MAX_BATCH_BYTES = 4 * 1024 * 1024;
 type InviteContext = {
   exhibitionTitle: string;
   galleryName: string | null;
+  issuesCertificateOfShow: boolean;
   inviteeEmail: string;
   inviteeName: string | null;
 };
@@ -828,8 +829,10 @@ export function SubmitExhibitionClient({
           <p className="text-ink/60 text-sm">{inviteContext.galleryName}</p>
         )}
         <p className="text-ink/55 text-sm mt-4 max-w-md mx-auto">
-          Upload your artworks to receive Certificates of Authenticity. The
-          gallery will automatically receive linked Certificates of Show.
+          Upload your artworks to receive Certificates of Authenticity.
+          {inviteContext.issuesCertificateOfShow
+            ? ' The gallery will automatically receive linked Certificates of Show.'
+            : ' They will be added to the exhibition automatically.'}
         </p>
       </div>
 

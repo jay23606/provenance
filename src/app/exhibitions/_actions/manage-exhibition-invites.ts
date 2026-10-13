@@ -13,6 +13,7 @@ import {
 } from '~/lib/certificate-claims/tokens';
 import { sendExhibitionArtistInviteEmail } from '~/lib/certificate-claims/send-certificate-invite-email';
 import { INVITE_TTL_MS } from '~/lib/certificate-claims/create-invite-batch';
+import { ownerReceivesCertificateOfShow } from '../_helpers/exhibition-owner-roles';
 
 export type ExhibitionArtistInviteInput = {
   email: string;
@@ -39,11 +40,11 @@ const OPEN_STATUSES = ['pending', 'sent'];
 async function assertCanManageExhibition(
   userId: string,
   exhibitionId: string,
-): Promise<{ galleryId: string; title: string }> {
+): Promise<{ galleryId: string; title: string; issuesCertificateOfShow: boolean }> {
   const client = asUntyped(getSupabaseServerClient());
   const { data: exhibition, error } = await asUntyped(client)
     .from('exhibitions')
-    .select('id, gallery_id, title')
+    .select('id, gallery_id, title, owner_role')
     .eq('id', exhibitionId)
     .single();
 
@@ -56,7 +57,11 @@ async function assertCanManageExhibition(
     throw new Error('Access denied');
   }
 
-  return { galleryId: exhibition.gallery_id, title: exhibition.title };
+  return {
+    galleryId: exhibition.gallery_id,
+    title: exhibition.title,
+    issuesCertificateOfShow: ownerReceivesCertificateOfShow(exhibition.owner_role),
+  };
 }
 
 async function getSenderName(userId: string): Promise<string | undefined> {
@@ -87,7 +92,7 @@ export async function createExhibitionArtistInvites(
     throw new Error('Unauthorized');
   }
 
-  const { title: exhibitionTitle } = await assertCanManageExhibition(
+  const { title: exhibitionTitle, issuesCertificateOfShow } = await assertCanManageExhibition(
     user.id,
     exhibitionId,
   );
@@ -158,6 +163,7 @@ export async function createExhibitionArtistInvites(
           exhibitionTitle,
           senderName,
           token,
+          issuesCertificateOfShow,
         });
       } catch (emailErr) {
         console.error('[Exhibitions] createExhibitionArtistInvites email failed', emailErr);
@@ -253,7 +259,7 @@ export async function resendExhibitionInvite(
   }
 
   try {
-    const { title: exhibitionTitle } = await assertCanManageExhibition(
+    const { title: exhibitionTitle, issuesCertificateOfShow } = await assertCanManageExhibition(
       user.id,
       invite.exhibition_id,
     );
@@ -284,6 +290,7 @@ export async function resendExhibitionInvite(
       exhibitionTitle,
       senderName,
       token,
+      issuesCertificateOfShow,
     });
 
     revalidatePath(`/exhibitions/${invite.exhibition_id}/edit`);
@@ -357,6 +364,7 @@ export async function getExhibitionInviteContext(token: string): Promise<
       valid: true;
       exhibitionTitle: string;
       galleryName: string | null;
+      issuesCertificateOfShow: boolean;
       inviteeEmail: string;
       inviteeName: string | null;
       status: string;
@@ -402,7 +410,7 @@ export async function getExhibitionInviteContext(token: string): Promise<
 
   const { data: exhibition } = await asUntyped(adminClient)
     .from('exhibitions')
-    .select('title, gallery_id')
+    .select('title, gallery_id, owner_role')
     .eq('id', invite.exhibition_id)
     .single();
 
@@ -420,6 +428,7 @@ export async function getExhibitionInviteContext(token: string): Promise<
     valid: true,
     exhibitionTitle: exhibition?.title ?? 'Exhibition',
     galleryName,
+    issuesCertificateOfShow: ownerReceivesCertificateOfShow(exhibition?.owner_role),
     inviteeEmail: invite.invitee_email,
     inviteeName: invite.invitee_name,
     status: invite.status,

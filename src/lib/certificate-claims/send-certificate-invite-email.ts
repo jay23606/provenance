@@ -186,8 +186,10 @@ export async function sendExhibitionArtistInviteEmail(params: {
   exhibitionTitle: string;
   senderName?: string;
   token: string;
+  /** False for artist-run shows, where no gallery Certificate of Show is issued. */
+  issuesCertificateOfShow?: boolean;
 }): Promise<void> {
-  const { to, recipientName, exhibitionTitle, senderName, token } = params;
+  const { to, recipientName, exhibitionTitle, senderName, token, issuesCertificateOfShow = true } = params;
   const submitUrl = getExhibitionSubmitUrl(token);
   const fromLine = senderName ? ` from ${senderName}` : '';
   console.log('[Exhibitions] sendExhibitionArtistInviteEmail', {
@@ -201,7 +203,7 @@ export async function sendExhibitionArtistInviteEmail(params: {
     `Submit artwork for "${exhibitionTitle}"`,
     {
       title: 'Submit your artwork',
-      body: `You have been invited${fromLine} to submit artwork for the exhibition "${exhibitionTitle}". Sign in with this email address, upload your work, and we will issue your Certificate of Authenticity — the gallery will receive a linked Certificate of Show.`,
+      body: `You have been invited${fromLine} to submit artwork for the exhibition "${exhibitionTitle}". Sign in with this email address, upload your work, and we will issue your Certificate of Authenticity${issuesCertificateOfShow ? ' — the gallery will receive a linked Certificate of Show' : ''}.`,
       ctaUrl: submitUrl,
       ctaLabel: 'Submit artwork',
     },

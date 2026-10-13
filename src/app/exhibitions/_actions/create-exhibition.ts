@@ -4,6 +4,10 @@ import { asUntyped } from '~/lib/supabase-untyped';
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { revalidatePath } from 'next/cache';
 import { getUserRole, USER_ROLES, type UserRole } from '~/lib/user-roles';
+import {
+  canOwnExhibitionAs,
+  type ExhibitionOwnerRole,
+} from '../_helpers/exhibition-owner-roles';
 import { captureExhibitionContacts } from '~/lib/crm/capture-exhibition-contacts';
 import { containsObjectionableText, OBJECTIONABLE_TEXT_MESSAGE } from '~/lib/moderation/text-filter';
 import {
@@ -53,22 +57,17 @@ export async function createExhibition(formData: FormData) {
   const artistInvitesJson = formData.get('artistInvites') as string | null;
   const ownerRoleInput = (formData.get('ownerRole') as string | null) || userRole;
 
-  // The requested owner_role must match the authenticated user's account role.
-  // This prevents a gallery account from creating an "institution" exhibition
-  // (or vice versa) that would then not show in their pickers.
-  if (ownerRoleInput !== userRole) {
-    console.error('[Exhibitions] createExhibition mode mismatch', {
+  // An account can own exhibitions as an artist or as a gallery/institution
+  // independently of its current mode (e.g. an artist who also runs a gallery
+  // curating a show outside it). Collector-owned shows require collector mode.
+  if (!canOwnExhibitionAs(ownerRoleInput, userRole)) {
+    console.error('[Exhibitions] createExhibition owner role rejected', {
       userRole,
       ownerRoleInput,
     });
-    throw new Error('Cannot create exhibition for a mode that does not match your account role');
+    throw new Error('Cannot create an exhibition under that mode');
   }
-  const ownerRole: 'artist' | 'collector' | 'gallery' | 'institution' =
-    (['artist', 'collector', 'gallery', 'institution'] as const).includes(
-      ownerRoleInput as any,
-    )
-      ? (ownerRoleInput as 'artist' | 'collector' | 'gallery' | 'institution')
-      : 'gallery';
+  const ownerRole = ownerRoleInput as ExhibitionOwnerRole;
 
   if (!title || !startDate) {
     throw new Error('Title and start date are required');
