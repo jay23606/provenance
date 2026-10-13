@@ -5,16 +5,20 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { FavoriteButton } from './favorite-button';
+import { AdminBoostButton } from './admin-boost-button';
 import { ArtistPanel, type FeedArtwork } from './artist-panel';
 
 export function FeedSlide({
   artwork,
   currentUserId,
   priority,
+  boost,
 }: {
   artwork: FeedArtwork;
   currentUserId?: string;
   priority?: boolean;
+  /** Admins only: current boost state and a callback when it changes. */
+  boost?: { boosted: boolean; onChange: (artworkId: string, boosted: boolean) => void };
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [artistRevealed, setArtistRevealed] = useState(false);
@@ -76,13 +80,20 @@ export function FeedSlide({
           </Link>
 
           {/* Favorite — top right on artwork, below floating search */}
-          <div className="absolute top-14 right-4 z-10">
+          <div className="absolute top-14 right-4 z-10 flex flex-col gap-2">
             <FavoriteButton
               artworkId={artwork.id}
               currentUserId={currentUserId}
               variant="overlay"
               showWhenSignedOut
             />
+            {boost && (
+              <AdminBoostButton
+                artworkId={artwork.id}
+                boosted={boost.boosted}
+                onChange={boost.onChange}
+              />
+            )}
           </div>
 
           {/* Bottom overlay */}
