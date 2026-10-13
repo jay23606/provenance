@@ -347,7 +347,7 @@ export async function POST(request: NextRequest) {
         })),
       {
         role: 'user',
-        content: userContent as OpenAI.Chat.Completions.ChatCompletionMessageParam['content'],
+        content: userContent as OpenAI.Chat.Completions.ChatCompletionUserMessageParam['content'],
       },
     ];
 

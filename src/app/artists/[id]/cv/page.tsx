@@ -12,6 +12,7 @@ import { ArtistCvView } from '../_components/artist-cv-view';
 import type { ExhibitionSummary } from '../_components/unclaimed-artist-public-view';
 
 import { asUntyped } from '~/lib/supabase-untyped';
+import type { NewsPublication } from '~/app/profiles/_actions/get-user-profiles';
 export const metadata = {
   title: 'Artist CV | Provenance',
 };
@@ -114,13 +115,14 @@ export default async function ArtistCvPage({
       end_date: e.end_date ?? null,
       location: e.location ?? null,
       image_url: null,
-      owner_role: null as any,
+      owner_role: null,
+      published_at: null,
       created_at: e.start_date,
       updated_at: e.start_date,
     }));
 
     const merged = mergeCvExhibitions(cvJson, fakeExhibitions);
-    const newsPublications = (profileRow.news_publications as unknown[]) ?? [];
+    const newsPublications = (profileRow.news_publications as NewsPublication[] | null) ?? [];
 
     console.log('[ArtistCV] unclaimed profile cv loaded', {
       profileId: profileRow.id,
@@ -186,7 +188,7 @@ export default async function ArtistCvPage({
   const location = roleProfile?.location ?? null;
   const uploadedAt = (roleProfile?.artist_cv_uploaded_at as string | null | undefined) ?? null;
   const hasOriginalFile = Boolean(roleProfile?.artist_cv_file_path);
-  const newsPublications = (roleProfile?.news_publications as unknown[]) ?? [];
+  const newsPublications = (roleProfile?.news_publications as NewsPublication[] | null) ?? [];
 
   console.log('[ArtistCV] claimed account cv loaded', {
     accountId: account.id,

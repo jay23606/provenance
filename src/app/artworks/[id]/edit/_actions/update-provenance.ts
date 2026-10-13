@@ -301,23 +301,21 @@ export async function updateProvenance(
 
             if (exhibition && canLink) {
               // Add artwork to exhibition (ignore duplicate errors)
-              await asUntyped(client)
+              const { error: exhibitionError } = await asUntyped(client)
                 .from('exhibition_artworks')
                 .insert({
                   exhibition_id: newExhibitionId,
                   artwork_id: artworkId,
-                })
-                .catch((exhibitionError: any) => {
-                  // Ignore duplicate key errors
-                  if (exhibitionError.code !== '23505') {
-                    logger.error('update_provenance_exhibition_link_insert_failed', {
-                      artworkId,
-                      exhibitionId: newExhibitionId,
-                      userId: user.id,
-                      error: exhibitionError,
-                    });
-                  }
                 });
+              // Ignore duplicate key errors
+              if (exhibitionError && exhibitionError.code !== '23505') {
+                logger.error('update_provenance_exhibition_link_insert_failed', {
+                  artworkId,
+                  exhibitionId: newExhibitionId,
+                  userId: user.id,
+                  error: exhibitionError,
+                });
+              }
             } else {
               logger.warn('update_provenance_exhibition_not_owned', {
                 artworkId,

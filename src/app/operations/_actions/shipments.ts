@@ -66,8 +66,8 @@ async function applyShipmentCounterparty(
   shipmentId: string,
   artworkId: string,
   email: string | null,
-  name?: string | null,
   prior: PriorCourier | null,
+  name?: string | null,
 ) {
   const p = prior ?? { courier_contact_email: null, courier_user_id: null };
   const { data: art } = await client.from('artworks').select('title').eq('id', artworkId).maybeSingle();
@@ -211,6 +211,7 @@ export async function updateShipment(raw: z.infer<typeof updateSchema>) {
   const p0 = prior as {
     status?: string;
     artwork_id?: string;
+    courier_name?: string | null;
     courier_contact_email?: string | null;
     courier_user_id?: string | null;
   };
@@ -263,7 +264,7 @@ export async function updateShipment(raw: z.infer<typeof updateSchema>) {
     const info = await applyShipmentCounterparty(client, user.id, id, artId, newEmail, {
       courier_contact_email: p0.courier_contact_email ?? null,
       courier_user_id: p0.courier_user_id ?? null,
-    }, rest.courier_name as string | null | undefined);
+    }, (rest.courier_name as string | undefined) ?? p0.courier_name ?? null);
     if (newStatus === 'in_transit' && oldStatus && oldStatus !== 'in_transit') {
       const { data: cRow } = await client
         .from('artwork_shipments')
@@ -375,6 +376,7 @@ export async function duplicateShipment(sid: string) {
     row.artwork_id as string,
     row.courier_contact_email as string | null,
     null,
+    row.courier_name as string | null,
   );
   revalidatePath('/operations');
   return { success: true as const, id: created.id as string };

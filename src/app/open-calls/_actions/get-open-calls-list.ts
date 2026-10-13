@@ -84,7 +84,7 @@ export async function getOpenCallsList(
     return [];
   }
 
-  let list = (data || []) as OpenCallListEntry[];
+  let list = (data || []) as unknown as OpenCallListEntry[];
 
   if (filters?.locationFilter === 'none') {
     list = list.filter((oc) => {

@@ -11,8 +11,8 @@ import { canEditGalleryArtworks, canManageExhibition } from '~/app/profiles/_act
 import { logger } from '~/lib/logger';
 
 export type EditArtworkFields = {
-  title?: string;
-  artist_name?: string;
+  title?: string | null;
+  artist_name?: string | null;
   image_url?: string;
   created_at?: string;
   exhibitionId?: string | null;

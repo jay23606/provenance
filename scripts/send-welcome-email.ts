@@ -8,7 +8,7 @@ import { renderMarkdownToEmailHtml } from '../src/lib/email-markdown';
 import { buildEmailHtml, escapeHtml } from '../src/lib/email-layout';
 import { getPresetThemeDefaults } from '../src/lib/email-layout-presets';
 
-const EMAIL_THEME = getPresetThemeDefaults('studio');
+const EMAIL_THEME = getPresetThemeDefaults('gallery');
 
 function interpolateWelcome(md: string, displayName: string, siteUrl: string): string {
   let out = md;

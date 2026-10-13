@@ -127,6 +127,7 @@ export async function createInvoice(raw: z.infer<typeof createInvoiceSchema>) {
     return { success: false as const, error: 'Could not save line items.' };
   }
 
+  const d = parsed.data;
   if (d.client_email) {
     await captureCrmContacts(user.id, [
       {

@@ -11,8 +11,9 @@ type PageProps = {
   }>;
 };
 
-export function withI18n<T extends PageProps>(
-  Component: React.ComponentType<T>,
+export function withI18n<T extends Partial<PageProps>>(
+  // Server pages may be async, which React.ComponentType doesn't allow.
+  Component: (props: T) => React.ReactNode | Promise<React.ReactNode>,
 ) {
   return function PageWithI18n(props: T) {
      

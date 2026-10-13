@@ -518,7 +518,7 @@ export async function createArtworksBatch(formData: FormData, userId: string) {
           const shouldNotifyArtist =
             !!artistAccountId &&
             (effectiveRole === USER_ROLES.COLLECTOR || certificateStatus === 'pending_artist_claim');
-          if (shouldNotifyArtist) {
+          if (shouldNotifyArtist && artistAccountId) {
             try {
               const notificationMessage =
                 effectiveRole === USER_ROLES.COLLECTOR

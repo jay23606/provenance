@@ -117,7 +117,7 @@ export function CreateExhibitionDialog({
         }
       } catch (e) {
         console.error('[CreateExhibitionDialog] Error creating exhibition', e);
-        const errorMessage = e?.message || 'Failed to create exhibition';
+        const errorMessage = (e instanceof Error && e.message) || 'Failed to create exhibition';
         setError(errorMessage);
         toast.error(errorMessage);
       }

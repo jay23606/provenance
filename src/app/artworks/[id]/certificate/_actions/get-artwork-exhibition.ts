@@ -52,7 +52,12 @@ export async function getArtworkExhibition(artworkId: string): Promise<ArtworkEx
     return null;
   }
 
-  const exhibition = exhibitionArtwork.exhibitions;
+  // A to-one embed is an object at runtime; the inferred type is an array.
+  const embedded = exhibitionArtwork.exhibitions;
+  const exhibition = Array.isArray(embedded) ? embedded[0] : embedded;
+  if (!exhibition) {
+    return null;
+  }
   let galleryInfo: { id: string; name: string; profileId?: string; slug?: string } | null = null;
 
   // Fetch gallery information if gallery_id exists
