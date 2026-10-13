@@ -12,6 +12,7 @@ import {
   UserPlus,
   ScrollText,
   Users,
+  GalleryVerticalEnd,
 } from 'lucide-react';
 import { Button } from '@kit/ui/button';
 import { markNotificationAsRead } from '~/lib/notifications';
@@ -107,6 +108,8 @@ export function NotificationsList({
         return <UserPlus className="h-5 w-5" />;
       case 'gallery_team_invite':
         return <Users className="h-5 w-5" />;
+      case 'exhibition_invite':
+        return <GalleryVerticalEnd className="h-5 w-5" />;
       case 'message':
         return <MessageSquare className="h-5 w-5" />;
       case 'provenance_service_request':
@@ -142,6 +145,7 @@ export function NotificationsList({
       case 'provenance_updated':
         return 'text-notify-info';
       case 'gallery_team_invite':
+      case 'exhibition_invite':
         return 'text-wine';
       default:
         return 'text-ink';
@@ -369,6 +373,20 @@ export function NotificationsList({
                           className="font-serif border-wine/30 hover:bg-wine/10"
                         >
                           View Claims
+                        </Button>
+                      </Link>
+                    )}
+
+                    {notification.type === 'exhibition_invite' &&
+                      typeof notification.metadata?.submit_path === 'string' &&
+                      notification.metadata.submit_path.startsWith('/exhibitions/submit?') && (
+                      <Link href={notification.metadata.submit_path}>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="font-serif bg-wine text-parchment hover:bg-wine/90"
+                        >
+                          Submit your work
                         </Button>
                       </Link>
                     )}

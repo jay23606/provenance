@@ -180,32 +180,103 @@ export async function sendBatchGalleryCoSInviteEmail(params: {
   });
 }
 
+export type ExhibitionInviteDetails = {
+  title: string;
+  description: string | null;
+  location: string | null;
+  startDate: string;
+  endDate: string | null;
+  confirmedArtists: string[];
+  /** False for artist-run shows, where no gallery Certificate of Show is issued. */
+  issuesCertificateOfShow: boolean;
+};
+
+const MAX_EMAIL_DESCRIPTION_CHARS = 800;
+
+/** Escape user-written text so it renders literally in the Markdown email body. */
+function escapeMarkdown(text: string): string {
+  return text
+    .replace(/([\\`*_{}\[\]<>#|~])/g, '\\$1')
+    .replace(/^(\s*)([-+])(?=\s)/gm, '$1\\$2')
+    .replace(/^(\s*)(\d+)\.(?=\s)/gm, '$1$2\\.');
+}
+
+function formatExhibitionDate(isoDate: string): string {
+  const date = new Date(isoDate.length === 10 ? `${isoDate}T00:00:00Z` : isoDate);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  return date.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+export function formatExhibitionDateRange(startDate: string, endDate: string | null): string {
+  const start = formatExhibitionDate(startDate);
+  return endDate ? `${start} – ${formatExhibitionDate(endDate)}` : `Opens ${start}`;
+}
+
 export async function sendExhibitionArtistInviteEmail(params: {
   to: string;
   recipientName: string;
-  exhibitionTitle: string;
+  exhibition: ExhibitionInviteDetails;
   senderName?: string;
   token: string;
-  /** False for artist-run shows, where no gallery Certificate of Show is issued. */
-  issuesCertificateOfShow?: boolean;
 }): Promise<void> {
-  const { to, recipientName, exhibitionTitle, senderName, token, issuesCertificateOfShow = true } = params;
+  const { to, recipientName, exhibition, senderName, token } = params;
   const submitUrl = getExhibitionSubmitUrl(token);
-  const fromLine = senderName ? ` from ${senderName}` : '';
+  const fromLine = senderName ? ` by ${escapeMarkdown(senderName)}` : '';
   console.log('[Exhibitions] sendExhibitionArtistInviteEmail', {
     to,
-    exhibitionTitle,
+    exhibitionTitle: exhibition.title,
     senderName,
+    confirmedArtistCount: exhibition.confirmedArtists.length,
   });
+
+  const detailLines = [
+    `**When:** ${formatExhibitionDateRange(exhibition.startDate, exhibition.endDate)}`,
+  ];
+  if (exhibition.location?.trim()) {
+    detailLines.push(`**Where:** ${escapeMarkdown(exhibition.location.trim())}`);
+  }
+  if (exhibition.confirmedArtists.length > 0) {
+    detailLines.push(
+      `**Confirmed artists:** ${exhibition.confirmedArtists.map(escapeMarkdown).join(', ')}`,
+    );
+  }
+
+  const description = exhibition.description?.trim();
+  const descriptionBlock = description
+    ? escapeMarkdown(
+        description.length > MAX_EMAIL_DESCRIPTION_CHARS
+          ? `${description.slice(0, MAX_EMAIL_DESCRIPTION_CHARS).trimEnd()}…`
+          : description,
+      )
+    : null;
+
+  const certificateLine = `Sign in with this email address and upload the work you will be showing. We will issue your Certificate of Authenticity${
+    exhibition.issuesCertificateOfShow
+      ? ' and the gallery will receive a linked Certificate of Show'
+      : ' and add the work to the exhibition'
+  }.`;
+
+  const body = [
+    `You have been invited${fromLine} to show in "${escapeMarkdown(exhibition.title)}".`,
+    ...detailLines,
+    ...(descriptionBlock ? [descriptionBlock] : []),
+    certificateLine,
+  ].join('\n');
+
   await sendNotificationEmail(
     to,
     recipientName,
-    `Submit artwork for "${exhibitionTitle}"`,
+    `You're invited to show in "${exhibition.title}"`,
     {
-      title: 'Submit your artwork',
-      body: `You have been invited${fromLine} to submit artwork for the exhibition "${exhibitionTitle}". Sign in with this email address, upload your work, and we will issue your Certificate of Authenticity${issuesCertificateOfShow ? ' — the gallery will receive a linked Certificate of Show' : ''}.`,
+      title: 'You are invited to exhibit',
+      body,
       ctaUrl: submitUrl,
-      ctaLabel: 'Submit artwork',
+      ctaLabel: 'Submit your work',
     },
   );
 }
