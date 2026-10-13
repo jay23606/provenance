@@ -4,10 +4,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect, useLayoutEffect } from 'react';
 import { isAppMode } from '~/lib/app-mode';
+import { rememberAppPath } from '~/lib/last-app-path';
 import { usePathname } from 'next/navigation';
 import type { JwtPayload } from '@supabase/supabase-js';
 import { ChevronDown, Wrench } from 'lucide-react';
-import type { ToolboxItem, InfoItem } from '~/config/app-nav-items';
 import { TOOLBOX_ITEMS, INFO_ITEMS } from '~/config/app-nav-items';
 import { cn } from '@kit/ui/utils';
 import { useCurrentUser } from '~/hooks/use-current-user';
@@ -64,11 +64,13 @@ export function Navigation(props: { initialUser?: JwtPayload | null }) {
   // hamburger / desktop-link visibility is correct on the very first frame —
   // no visible flash in the Capacitor wrapper or installed PWA.
   useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- app mode is only knowable on the client
     setIsNative(isAppMode());
   }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is client-only
     setSelectedProfileId(localStorage.getItem('selected_profile_id'));
 
     const handleProfileSelected = (e: Event) => {
@@ -83,6 +85,11 @@ export function Navigation(props: { initialUser?: JwtPayload | null }) {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Lets the docs shell link back to wherever the user opened it from.
+  useEffect(() => {
+    if (pathname && !pathname.startsWith('/docs')) rememberAppPath(pathname);
+  }, [pathname]);
 
   // Investor pages have their own nav; preview and docs have their own shells.
   if (

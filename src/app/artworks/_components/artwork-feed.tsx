@@ -30,9 +30,12 @@ const SORT_OPTIONS: {
 export function ArtworkFeed({
   currentUserId,
   isSignedIn,
+  initialBoostedIds,
 }: {
   currentUserId?: string;
   isSignedIn: boolean;
+  /** Set only for admins: artworks currently boosted in the feed. */
+  initialBoostedIds?: string[];
 }) {
   const seedRef = useRef(crypto.randomUUID());
   const [items, setItems] = useState<FeedArtwork[]>([]);
@@ -51,6 +54,17 @@ export function ArtworkFeed({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemsRef = useRef<FeedArtwork[]>([]);
   const markedRef = useRef(new Set<string>());
+  const [boostedIds, setBoostedIds] = useState(() => new Set(initialBoostedIds ?? []));
+  const isAdmin = initialBoostedIds !== undefined;
+
+  const handleBoostChange = useCallback((artworkId: string, boosted: boolean) => {
+    setBoostedIds((prev) => {
+      const next = new Set(prev);
+      if (boosted) next.add(artworkId);
+      else next.delete(artworkId);
+      return next;
+    });
+  }, []);
 
   const fetchPage = useCallback(
     async (pageOffset: number, q: string, append: boolean, sort: SortMode) => {
@@ -364,6 +378,11 @@ export function ArtworkFeed({
               artwork={artwork}
               currentUserId={currentUserId}
               priority={i === 0}
+              boost={
+                isAdmin
+                  ? { boosted: boostedIds.has(artwork.id), onChange: handleBoostChange }
+                  : undefined
+              }
             />
           ))}
 
