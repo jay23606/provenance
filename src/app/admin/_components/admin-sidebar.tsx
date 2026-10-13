@@ -19,6 +19,7 @@ const NAV: { href: string; label: string }[] = [
   { href: '/admin/api-keys', label: 'api-keys' },
   { href: '/admin/audio', label: 'audio' },
   { href: '/admin/queued-artworks', label: 'queued' },
+  { href: '/admin/feed-boosts', label: 'feed-boosts' },
   { href: '/admin/taco', label: 'taco-usage' },
 ];
 

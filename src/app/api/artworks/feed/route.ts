@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { escapeIlike } from '~/lib/escape-ilike';
 import { seededShuffle } from '~/lib/seeded-shuffle';
+import { rankFeed } from '~/lib/feed/rank-feed';
 import { getBlockedUserIds, isOwnedByBlocked } from '~/lib/moderation/blocks';
 import { getDirectoryHiddenAccountIds } from '~/lib/directory-hidden';
 
@@ -12,7 +13,15 @@ const FeedQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).default(10),
   q: z.string().trim().max(100).optional(),
   sort: z.enum(['shuffle', 'recent', 'top', 'following', 'exhibitions']).default('shuffle'),
+  // Default feed only: ids already delivered this session. Excluding them
+  // (instead of paging by offset) keeps pages consistent while views are
+  // being recorded and the ranking shifts underneath.
+  exclude: z.array(z.string().uuid()).max(2000).default([]),
+  // Default feed, signed-out only: ids seen on this device, oldest first.
+  seen: z.array(z.string().uuid()).max(500).default([]),
 });
+
+type FeedQuery = z.infer<typeof FeedQuerySchema>;
 
 const SELECT_COLS =
   'id, title, artist_name, image_url, medium, creation_date, account_id, artist_account_id, artist_profile_id, created_at';
@@ -86,23 +95,85 @@ function applySearchFilter<T>(qb: T, q: string): T {
   ) as T;
 }
 
+/**
+ * Signed-in viewers: last-seen time per artwork from artwork_impressions.
+ * Signed-out viewers: recency index from the device's local seen list.
+ */
+async function loadLastSeen(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  userId: string | undefined,
+  localSeen: string[],
+): Promise<Map<string, number>> {
+  if (!userId) {
+    return new Map(localSeen.map((id, i) => [id, i]));
+  }
+
+  const { data, error } = await db
+    .from('artwork_impressions')
+    .select('artwork_id, last_seen_at')
+    .eq('user_id', userId)
+    .order('last_seen_at', { ascending: false })
+    .limit(1000);
+
+  if (error) {
+    console.error('[API/artworks/feed] Impressions lookup failed', error);
+    return new Map();
+  }
+
+  return new Map(
+    (data ?? []).map((r: { artwork_id: string; last_seen_at: string }) => [
+      r.artwork_id,
+      new Date(r.last_seen_at).getTime(),
+    ]),
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadActiveBoosts(db: any): Promise<Set<string>> {
+  const { data, error } = await db
+    .from('artwork_feed_boosts')
+    .select('artwork_id')
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+
+  if (error) {
+    console.error('[API/artworks/feed] Boosts lookup failed', error);
+    return new Set();
+  }
+
+  return new Set((data ?? []).map((r: { artwork_id: string }) => r.artwork_id));
+}
+
 export async function GET(request: NextRequest) {
   console.log('[API/artworks/feed] GET started');
 
-  const parseResult = FeedQuerySchema.safeParse({
-    seed: request.nextUrl.searchParams.get('seed') ?? '',
-    offset: request.nextUrl.searchParams.get('offset') ?? '0',
-    limit: request.nextUrl.searchParams.get('limit') ?? '10',
-    q: request.nextUrl.searchParams.get('q') ?? undefined,
-    sort: request.nextUrl.searchParams.get('sort') ?? 'shuffle',
-  });
+  return handleFeed(
+    FeedQuerySchema.safeParse({
+      seed: request.nextUrl.searchParams.get('seed') ?? '',
+      offset: request.nextUrl.searchParams.get('offset') ?? '0',
+      limit: request.nextUrl.searchParams.get('limit') ?? '10',
+      q: request.nextUrl.searchParams.get('q') ?? undefined,
+      sort: request.nextUrl.searchParams.get('sort') ?? 'shuffle',
+    }),
+  );
+}
 
+export async function POST(request: NextRequest) {
+  console.log('[API/artworks/feed] POST started');
+
+  const body = await request.json().catch(() => null);
+  return handleFeed(FeedQuerySchema.safeParse(body ?? {}));
+}
+
+async function handleFeed(
+  parseResult: z.SafeParseReturnType<unknown, FeedQuery>,
+): Promise<NextResponse> {
   if (!parseResult.success) {
     console.error('[API/artworks/feed] Invalid query params', parseResult.error);
     return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
   }
 
-  const { seed, offset, limit, q = '', sort } = parseResult.data;
+  const { seed, offset, limit, q = '', sort, exclude, seen } = parseResult.data;
 
   try {
     const client = getSupabaseServerClient();
@@ -283,9 +354,11 @@ export async function GET(request: NextRequest) {
     // --- sort: shuffle (default) ---
     // Merge standard artworks with exhibition artworks from published exhibitions.
     // Exhibition artworks bypass the verified/authenticity filter but are still deduplicated.
-    const [{ data: rows, error }, exhibitionArtworks] = await Promise.all([
+    const [{ data: rows, error }, exhibitionArtworks, lastSeen, boosted] = await Promise.all([
       baseQuery,
       fetchExhibitionArtworks(db, q),
+      loadLastSeen(db, user?.id, seen),
+      loadActiveBoosts(db),
     ]);
 
     if (error) {
@@ -298,14 +371,21 @@ export async function GET(request: NextRequest) {
     const newExhibitionArtworks = exhibitionArtworks.filter((a) => !mainIds.has(a.id));
     const all = visible([...mainArtworks, ...newExhibitionArtworks]);
 
-    const shuffled = seededShuffle(all, seed);
-    const items = shuffled.slice(offset, offset + limit);
-    const hasMore = offset + limit < shuffled.length;
+    // Unseen (boosted first) before seen; see rankFeed. Older clients still
+    // page by offset; current ones send the ids they already have.
+    const ranked = rankFeed(all, { seed, lastSeen, boosted });
+    const excluded = new Set(exclude);
+    const remaining = excluded.size > 0 ? ranked.filter((a) => !excluded.has(a.id)) : ranked.slice(offset);
+    const items = remaining.slice(0, limit);
+    const hasMore = remaining.length > limit;
 
     console.log('[API/artworks/feed] Returning feed slice', {
-      total: shuffled.length,
+      total: ranked.length,
       mainCount: mainArtworks.length,
       exhibitionCount: newExhibitionArtworks.length,
+      seenCount: lastSeen.size,
+      boostedCount: boosted.size,
+      excluded: excluded.size,
       offset,
       limit,
       returned: items.length,
