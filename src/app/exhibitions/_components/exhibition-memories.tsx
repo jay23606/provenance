@@ -11,6 +11,11 @@ import {
   postExhibitionMemory,
   type ExhibitionMemory,
 } from '../_actions/exhibition-memories';
+import {
+  MAX_UPLOAD_IMAGE_BYTES,
+  isLikelyImageFile,
+  prepareImageForUpload,
+} from '~/lib/client-image-upload';
 
 const MAX_IMAGES = 4;
 
@@ -86,7 +91,7 @@ export function ExhibitionMemories({
     if (!fileList) return;
     // Accept standard images plus HEIC/HEIF from iPhone (server converts them).
     const incoming = Array.from(fileList).filter(
-      (f) => f.type.startsWith('image/') || isHeicFile(f),
+      (f) => isLikelyImageFile(f) || isHeicFile(f),
     );
     setImages((prev) => {
       const room = MAX_IMAGES - prev.length;
@@ -131,7 +136,22 @@ export function ExhibitionMemories({
         const fd = new FormData();
         fd.append('exhibitionId', exhibitionId);
         fd.append('body', body.trim());
-        images.forEach((img, i) => fd.append(`image_${i}`, img.file));
+        // All photos travel in one Server Action request, which Vercel caps at
+        // ~4.5MB, so split the budget across them and compress in the browser.
+        const perImageBudget = Math.floor(
+          MAX_UPLOAD_IMAGE_BYTES / Math.max(images.length, 1),
+        );
+        const prepared = await Promise.all(
+          images.map((img) => prepareImageForUpload(img.file, perImageBudget)),
+        );
+        const totalBytes = prepared.reduce((sum, f) => sum + f.size, 0);
+        if (totalBytes > MAX_UPLOAD_IMAGE_BYTES) {
+          toast.error(
+            'These photos are too large to upload together. Try fewer photos at once.',
+          );
+          return;
+        }
+        prepared.forEach((file, i) => fd.append(`image_${i}`, file));
 
         const result = await postExhibitionMemory(fd);
         if (!result.success) {
