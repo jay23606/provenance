@@ -396,11 +396,14 @@ export default async function ArtistProfilePage({
 
   let allExhibitions: Awaited<ReturnType<typeof getExhibitionsForGallery>> = [];
   if (isGallery) {
-    allExhibitions = await getExhibitionsForGallery(account.id, { publishedOnly: true });
+    allExhibitions = await getExhibitionsForGallery(account.id, {
+      ownerRoles: ['gallery', 'institution'],
+      publishedOnly: true,
+    });
   } else if (isArtistProfile) {
     allExhibitions = await getExhibitionsForArtistAccount(account.id, {
       artistProfileId: roleProfile?.id ?? null,
-      // Exclude shows created by this user's own gallery — they belong on the gallery view
+      // Exclude shows this user created as a gallery — they belong on the gallery view
       excludeGalleryId: account.id,
       publishedOnly: true,
     });
@@ -1159,14 +1162,14 @@ export default async function ArtistProfilePage({
                   <p className="text-[10px] uppercase tracking-widest text-ink/35 font-serif">
                     Exhibitions
                   </p>
-                  {isOwner && isGallery && (
+                  {isOwner && (
                     <Button
                       asChild
                       variant="ghost"
                       size="sm"
                       className="font-serif text-xs text-wine/70 hover:text-wine h-auto py-0"
                     >
-                      <Link href="/exhibitions">Manage all</Link>
+                      <Link href={`/exhibitions?as=${isGallery ? 'gallery' : 'artist'}`}>Manage all</Link>
                     </Button>
                   )}
                 </div>
@@ -1212,7 +1215,7 @@ export default async function ArtistProfilePage({
                 {allExhibitions.length > 6 && (
                   <div className="mt-4 text-center">
                     <Button asChild variant="ghost" size="sm" className="font-serif text-wine/70 hover:text-wine">
-                      <Link href="/exhibitions">
+                      <Link href={`/exhibitions?as=${isGallery ? 'gallery' : 'artist'}`}>
                         View all {allExhibitions.length} exhibitions
                       </Link>
                     </Button>

@@ -16,7 +16,7 @@
  *   NEXT_PUBLIC_SUPABASE_URL
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import { readFileSync } from 'fs';
 
@@ -171,7 +171,7 @@ async function fetchWikipediaFullText(title: string): Promise<string | null> {
 async function ingestWikipedia(
   topics: string[],
   openai: OpenAI,
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
 ) {
   console.log(`[Ingest] Wikipedia: ingesting ${topics.length} topics`);
 
@@ -233,7 +233,7 @@ async function ingestFile(
   filePath: string,
   title: string,
   openai: OpenAI,
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
 ) {
   console.log(`[Ingest] File: "${filePath}" as "${title}"`);
 
@@ -244,7 +244,7 @@ async function ingestFile(
     const pdfParse = (await import('pdf-parse')).default;
     const buffer = readFileSync(filePath);
     const data = await pdfParse(buffer);
-    text = data.text;
+    text = data.text ?? '';
   } else {
     text = readFileSync(filePath, 'utf-8');
   }

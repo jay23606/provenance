@@ -179,7 +179,7 @@ export async function addFeaturedArtwork(artworkId: string) {
     // Prefer the current admin's own account so the canonical list lives there.
     // If a different account currently holds featured_artworks, we'll migrate and clean it up below.
     const existingFeaturedAccountId = await getFeaturedArtworksAccountId();
-    const targetAccountId = user.id;
+    const targetAccountId = adminId;
     console.log('[FeaturedArtworks] addFeaturedArtwork target account', {
       targetAccountId,
       existingFeaturedAccountId,
@@ -261,7 +261,7 @@ export async function addFeaturedArtwork(artworkId: string) {
       const otherPublicData = (otherAccount.public_data as Record<string, unknown>) || {};
       if (otherPublicData?.featured_artworks && Array.isArray(otherPublicData.featured_artworks)) {
         const { featured_artworks: _featured_artworks, ...restPublicData } = otherPublicData;
-        await adminClient
+        await asUntyped(adminClient)
           .from('accounts')
           .update({
             public_data: restPublicData,

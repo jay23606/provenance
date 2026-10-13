@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { asUntyped } from '~/lib/supabase-untyped';
 import { redirect } from 'next/navigation';
 import { Images } from 'lucide-react';
@@ -262,7 +263,7 @@ export default async function MyArtworksPage({
     );
   }
 
-  const artworkIds = artworks.map((artwork) => artwork.id);
+  const artworkIds = artworks.map((artwork) => artwork.id as string);
   const { data: exhibitionLinks } = await client
     .from('exhibition_artworks')
     .select('artwork_id, exhibition_id')
@@ -411,7 +412,7 @@ export default async function MyArtworksPage({
 
       <div className="container mx-auto max-w-7xl w-full min-w-0 overflow-x-hidden px-4 sm:px-6 py-6 sm:py-8 pb-28 sm:pb-24">
         <SpreadsheetEditForm
-          artworks={artworks}
+          artworks={artworks as unknown as ComponentProps<typeof SpreadsheetEditForm>['artworks']}
           linkableExhibitions={linkableExhibitions}
           initialExhibitionIdByArtworkId={initialExhibitionIdByArtworkId}
           receiverName={receiverName}

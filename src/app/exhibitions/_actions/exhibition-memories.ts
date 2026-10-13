@@ -44,15 +44,15 @@ export async function getExhibitionMemories(
     count: (data || []).length,
   });
 
-  return (data || []).map((row: Record<string, unknown>) => ({
-    id: row.id,
-    exhibition_id: row.exhibition_id,
-    user_id: row.user_id,
-    author_name: row.author_name ?? null,
-    author_avatar_url: row.author_avatar_url ?? null,
-    body: row.body ?? null,
-    image_urls: Array.isArray(row.image_urls) ? row.image_urls : [],
-    created_at: row.created_at,
+  return (data || []).map((row: Record<string, unknown>): ExhibitionMemory => ({
+    id: row.id as string,
+    exhibition_id: row.exhibition_id as string,
+    user_id: row.user_id as string,
+    author_name: (row.author_name as string | null) ?? null,
+    author_avatar_url: (row.author_avatar_url as string | null) ?? null,
+    body: (row.body as string | null) ?? null,
+    image_urls: Array.isArray(row.image_urls) ? (row.image_urls as string[]) : [],
+    created_at: row.created_at as string,
   }));
 }
 

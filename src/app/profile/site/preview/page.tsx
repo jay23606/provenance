@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { isSellingEnabled } from '~/lib/stripe-connect';
 import Link from 'next/link';
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { getActiveSubscription } from '~/lib/subscription';
@@ -199,6 +200,9 @@ export default async function SitePreviewPage({
     custom_domain: config.customDomainVerifiedAt ? config.customDomain : null,
     is_white_label: isWhiteLabel,
     section_order: config.sectionOrder,
+    featured_exhibition_ids: config.featuredExhibitionIds,
+    artwork_click_behavior: config.artworkClickBehavior,
+    selling_enabled: await isSellingEnabled(profile.user_id),
   };
 
   const accentColor = resolveAccent(effectiveAccent);

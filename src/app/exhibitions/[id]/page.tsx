@@ -140,6 +140,9 @@ export default async function ExhibitionPage({
       ? `/artists/${aid}?role=artist&profileId=${pid}`
       : `/artists/${aid}?role=artist`;
     backLabel = 'Artist';
+  } else if (exhibition.owner_role === USER_ROLES.ARTIST) {
+    backLink = `/artists/${exhibition.gallery_id}?role=artist`;
+    backLabel = 'Artist';
   } else if (resolvedSearchParams?.from === 'gallery' || exhibition.gallery_id) {
     try {
       const galleryProfile = await getUserProfileByRole(exhibition.gallery_id, USER_ROLES.GALLERY);

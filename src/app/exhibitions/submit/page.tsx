@@ -21,6 +21,7 @@ export default async function ExhibitionSubmitPage({ searchParams }: PageProps) 
       inviteContext = {
         exhibitionTitle: result.exhibitionTitle,
         galleryName: result.galleryName,
+        issuesCertificateOfShow: result.issuesCertificateOfShow,
         inviteeEmail: result.inviteeEmail,
         inviteeName: result.inviteeName,
       };

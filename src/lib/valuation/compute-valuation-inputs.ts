@@ -2,6 +2,7 @@ import { asUntyped } from '~/lib/supabase-untyped';
 import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 
 import { logger } from '~/lib/logger';
+import type { WebResearchResult } from './web-research-pass';
 
 export const VALUATION_ENGINE_VERSION = 'v1';
 
@@ -44,7 +45,7 @@ export interface ValuationInputs {
     }>;
     same_medium_count: number;
     avg_comparable_cents: number;
-    web_research?: Record<string, unknown> | null;
+    web_research?: WebResearchResult | null;
   };
 
   deterministic_output: {

@@ -673,8 +673,8 @@ export function TacoProfileChatbot({
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       {/* Chat column */}
       <Card
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ref={dropZoneRef as any}
+        // Card spreads props onto its <div>, so the ref reaches the DOM node (React 19).
+        {...{ ref: dropZoneRef }}
         className="border-wine/20 bg-parchment/60 relative flex flex-col overflow-hidden"
         onDragEnter={handleDragOver}
         onDragOver={handleDragOver}

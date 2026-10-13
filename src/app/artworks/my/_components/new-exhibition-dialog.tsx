@@ -116,7 +116,7 @@ export function NewExhibitionDialog({
         router.refresh();
       } catch (e) {
         console.error('[Collection] NewExhibitionDialog failed', e);
-        const errorMessage = e?.message || 'Failed to create exhibition';
+        const errorMessage = (e instanceof Error && e.message) || 'Failed to create exhibition';
         setError(errorMessage);
         toast.error(errorMessage);
       }

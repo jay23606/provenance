@@ -51,6 +51,7 @@ export interface ArtistTemplateProps {
     currentStreakDays: number;
     longestStreakDays: number;
     starTier: StarTier;
+    isFoundingArtist?: boolean;
   };
 }
 

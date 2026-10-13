@@ -14,6 +14,9 @@ import { createQuickExhibitionListings } from '../_actions/create-exhibition-lis
 import { ParticipantSelector, type ExhibitionArtistInvite } from './participant-selector';
 import { ChecklistImport, type ChecklistRow } from './checklist-import';
 import type { ExhibitionChecklist } from '../_helpers/checklist-parsing';
+import type { ExhibitionOwnerRole } from '../_helpers/exhibition-owner-roles';
+import { getRoleLabel } from '~/lib/user-roles';
+import { cn } from '@kit/ui/utils';
 
 import { asUntyped } from '~/lib/supabase-untyped';
 type Artist = {
@@ -22,10 +25,21 @@ type Artist = {
   picture_url: string | null;
 };
 
+const OWNER_ROLE_HINTS: Partial<Record<ExhibitionOwnerRole, string>> = {
+  gallery: 'Listed under your gallery. Invited artists get a Certificate of Authenticity and your gallery gets a linked Certificate of Show.',
+  institution: 'Listed under your institution. Invited artists get a Certificate of Authenticity and your institution gets a linked Certificate of Show.',
+  artist: 'Listed on your artist profile, separate from any gallery you run. Invited artists keep their own Certificates of Authenticity.',
+};
+
 export function ExhibitionForm({
   exhibition,
+  ownerRoleOptions = [],
+  defaultOwnerRole,
 }: {
   exhibition?: any;
+  /** Modes the new exhibition can be created under; ignored when editing. */
+  ownerRoleOptions?: ExhibitionOwnerRole[];
+  defaultOwnerRole?: ExhibitionOwnerRole;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -37,6 +51,7 @@ export function ExhibitionForm({
   const [selectedArtists, setSelectedArtists] = useState<Artist[]>(initialArtists);
   const [selectedInvites, setSelectedInvites] = useState<ExhibitionArtistInvite[]>([]);
   const [checklistRows, setChecklistRows] = useState<ChecklistRow[]>([]);
+  const [ownerRole, setOwnerRole] = useState<ExhibitionOwnerRole | undefined>(defaultOwnerRole);
 
   const [formData, setFormData] = useState({
     title: exhibition?.title || '',
@@ -82,6 +97,9 @@ export function ExhibitionForm({
         formDataObj.append('location', formData.location);
         formDataObj.append('curator', formData.curator);
         formDataObj.append('theme', formData.theme);
+        if (!exhibition && ownerRole) {
+          formDataObj.append('ownerRole', ownerRole);
+        }
         // Append artist IDs as JSON array
         formDataObj.append('artistIds', JSON.stringify(selectedArtists.map(a => a.id)));
         formDataObj.append(
@@ -130,14 +148,14 @@ export function ExhibitionForm({
           if (result?.exhibitionId) {
             router.push(`/exhibitions/${result.exhibitionId}/edit#artworks`);
           } else {
-            router.push('/exhibitions');
+            router.push(ownerRole ? `/exhibitions?as=${ownerRole}` : '/exhibitions');
           }
         }
 
         router.refresh();
       } catch (e) {
         console.error('[ExhibitionForm] Error saving exhibition', e);
-        const errorMessage = e?.message || 'Failed to save exhibition';
+        const errorMessage = (e instanceof Error && e.message) || 'Failed to save exhibition';
         setError(errorMessage);
         toast.error(errorMessage);
       }
@@ -150,6 +168,31 @@ export function ExhibitionForm({
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
+      )}
+
+      {!exhibition && ownerRoleOptions.length > 1 && ownerRole && (
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium">Create as</legend>
+          <div className="inline-flex rounded-full border border-wine/20 p-1 font-serif text-sm">
+            {ownerRoleOptions.map((role) => (
+              <button
+                key={role}
+                type="button"
+                aria-pressed={role === ownerRole}
+                onClick={() => setOwnerRole(role)}
+                className={cn(
+                  'rounded-full px-4 py-1.5 transition-colors',
+                  role === ownerRole ? 'bg-wine text-parchment' : 'text-ink/60 hover:text-ink',
+                )}
+              >
+                {getRoleLabel(role)}
+              </button>
+            ))}
+          </div>
+          {OWNER_ROLE_HINTS[ownerRole] && (
+            <p className="text-xs text-ink/60 font-serif">{OWNER_ROLE_HINTS[ownerRole]}</p>
+          )}
+        </fieldset>
       )}
 
       {!exhibition && (

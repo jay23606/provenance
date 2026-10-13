@@ -35,5 +35,5 @@ export async function getOpenCallSubmissionsForUser(userId: string) {
     return [];
   }
 
-  return (data || []) as OpenCallSubmission[];
+  return (data || []) as unknown as OpenCallSubmission[];
 }

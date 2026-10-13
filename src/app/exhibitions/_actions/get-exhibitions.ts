@@ -13,7 +13,7 @@ export type Exhibition = {
   end_date: string | null;
   location: string | null;
   image_url: string | null;
-  owner_role: 'gallery' | 'institution' | null;
+  owner_role: 'artist' | 'collector' | 'gallery' | 'institution' | null;
   published_at: string | null;
   created_at: string;
   updated_at: string;
@@ -39,7 +39,7 @@ export type ExhibitionWithDetails = Exhibition & {
 
 export async function getExhibitionsForGallery(
   galleryId: string,
-  options?: { ownerRole?: 'gallery' | 'institution'; publishedOnly?: boolean },
+  options?: { ownerRoles?: Exhibition['owner_role'][]; publishedOnly?: boolean },
 ): Promise<Exhibition[]> {
   const client = asUntyped(getSupabaseServerClient());
 
@@ -49,8 +49,8 @@ export async function getExhibitionsForGallery(
     .eq('gallery_id', galleryId)
     .order('start_date', { ascending: false });
 
-  if (options?.ownerRole) {
-    query = query.eq('owner_role', options.ownerRole);
+  if (options?.ownerRoles?.length) {
+    query = query.in('owner_role', options.ownerRoles);
   }
 
   if (options?.publishedOnly) {
@@ -120,7 +120,7 @@ export async function getExhibitionsForArtistAccount(
   }
 
   for (const row of creditedRows || []) {
-    const ex = row.exhibitions as Exhibition | undefined;
+    const ex = row.exhibitions as unknown as Exhibition | undefined;
     if (ex?.id) byId.set(ex.id, ex);
   }
 
@@ -176,16 +176,33 @@ export async function getExhibitionsForArtistAccount(
     }
 
     for (const row of linkRows || []) {
-      const ex = row.exhibitions as Exhibition | undefined;
+      const ex = row.exhibitions as unknown as Exhibition | undefined;
       if (ex?.id) byId.set(ex.id, ex);
     }
   }
 
-  // Remove exhibitions that belong to this artist's own gallery account
+  // 3. Exhibitions this account created in artist mode.
+  const { data: ownRows, error: ownErr } = await asUntyped(client)
+    .from('exhibitions')
+    .select('*')
+    .eq('gallery_id', artistAccountId)
+    .eq('owner_role', 'artist');
+
+  if (ownErr) {
+    console.error('[Exhibitions] getExhibitionsForArtistAccount own exhibitions failed', ownErr);
+  }
+
+  for (const ex of (ownRows || []) as Exhibition[]) {
+    byId.set(ex.id, ex);
+  }
+
+  // Remove exhibitions this account created in gallery/institution mode
   // (those should only appear on the gallery profile view)
   let list = Array.from(byId.values());
   if (excludeGalleryId) {
-    list = list.filter((ex) => ex.gallery_id !== excludeGalleryId);
+    list = list.filter(
+      (ex) => ex.gallery_id !== excludeGalleryId || ex.owner_role === 'artist',
+    );
   }
   if (options?.publishedOnly) {
     list = list.filter((ex) => ex.published_at !== null);

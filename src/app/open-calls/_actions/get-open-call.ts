@@ -41,5 +41,5 @@ export async function getOpenCallBySlug(slug: string): Promise<OpenCall | null> 
     return null;
   }
 
-  return data as OpenCall;
+  return data as unknown as OpenCall;
 }

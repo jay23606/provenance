@@ -53,9 +53,11 @@ function formatRange(start: string, end: string | null) {
 
 export function ExhibitionsList({
   exhibitions,
+  newExhibitionHref = '/exhibitions/new',
 }: {
   exhibitions: Exhibition[];
   galleryId: string;
+  newExhibitionHref?: string;
 }) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -125,7 +127,7 @@ export function ExhibitionsList({
           size="sm"
           className="bg-wine text-parchment hover:bg-wine/90 font-serif"
         >
-          <Link href="/exhibitions/new">
+          <Link href={newExhibitionHref}>
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             New Exhibition
           </Link>
@@ -142,7 +144,7 @@ export function ExhibitionsList({
             Create your first exhibition to start showcasing artworks and artists.
           </p>
           <Button asChild className="bg-wine text-parchment hover:bg-wine/90 font-serif">
-            <Link href="/exhibitions/new">
+            <Link href={newExhibitionHref}>
               <Plus className="h-4 w-4 mr-2" />
               Create Exhibition
             </Link>

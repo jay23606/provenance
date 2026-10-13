@@ -129,7 +129,10 @@ async function loadAggregates() {
       .gte('created_at', monthIso),
   ]);
 
-  const summarise = (rows: UsageRow[] | null, count: number | null) => {
+  const summarise = (
+    rows: Pick<UsageRow, 'total_tokens' | 'estimated_cost_usd' | 'user_id'>[] | null,
+    count: number | null,
+  ) => {
     const r = rows ?? [];
     return {
       requests: count ?? 0,

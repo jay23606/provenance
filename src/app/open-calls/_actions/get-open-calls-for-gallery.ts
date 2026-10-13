@@ -55,5 +55,5 @@ export async function getOpenCallsForGallery(userId: string): Promise<OpenCallLi
     return [];
   }
 
-  return (data || []) as OpenCallListItem[];
+  return (data || []) as unknown as OpenCallListItem[];
 }

@@ -50,7 +50,7 @@ export async function getProposals(): Promise<ProposalRow[]> {
     ...row,
     grant_name: (row.artist_grants as { name?: string } | null)?.name ?? null,
     artist_grants: undefined,
-  }));
+  }) as unknown as ProposalRow);
 }
 
 /**

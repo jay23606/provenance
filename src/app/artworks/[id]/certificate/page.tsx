@@ -245,7 +245,7 @@ export default async function CertificatePage({
   const canRequestProvenance = isOwner || canRequestProvenanceAsGallery;
   
   // Get creator account info and check admin status in parallel
-  let creatorInfo: { name: string; role: string | null } | null = null;
+  let creatorInfo: { name: string; role: string | null; profileId?: string; slug?: string } | null = null;
   let userIsAdmin = false;
   
   try {

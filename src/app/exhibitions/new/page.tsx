@@ -1,14 +1,23 @@
 import { redirect } from 'next/navigation';
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
-import { getUserRole, getRoleLabel, USER_ROLES, type UserRole } from '~/lib/user-roles';
+import { getUserRole } from '~/lib/user-roles';
 import { ExhibitionForm } from '../_components/exhibition-form';
+import {
+  defaultExhibitionOwnerRole,
+  getExhibitionOwnerRoleOptions,
+} from '../_helpers/exhibition-owner-roles';
 
 import { asUntyped } from '~/lib/supabase-untyped';
 export const metadata = {
   title: 'New Exhibition | Provenance',
 };
 
-export default async function NewExhibitionPage() {
+export default async function NewExhibitionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ as?: string }>;
+}) {
+  const { as: requestedOwnerRole } = await searchParams;
   const client = asUntyped(getSupabaseServerClient());
   const { data: { user } } = await client.auth.getUser();
 
@@ -27,13 +36,6 @@ export default async function NewExhibitionPage() {
   }
 
   const userRole = getUserRole(account.public_data as Record<string, unknown>);
-  const allowedRoles = new Set<UserRole>([USER_ROLES.GALLERY, USER_ROLES.INSTITUTION]);
-  if (!userRole || !allowedRoles.has(userRole)) {
-    console.warn('[Exhibitions] NewExhibitionPage access denied', { userRole });
-    redirect('/registry');
-  }
-
-  const modeLabel = getRoleLabel(userRole);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -42,12 +44,14 @@ export default async function NewExhibitionPage() {
           New Exhibition
         </h1>
         <p className="text-ink/70 font-serif">
-          Create a new exhibition for your {modeLabel.toLowerCase()}
+          Create an exhibition and invite artists to upload the work they will show
         </p>
       </div>
 
-      <ExhibitionForm />
+      <ExhibitionForm
+        ownerRoleOptions={getExhibitionOwnerRoleOptions(userRole)}
+        defaultOwnerRole={defaultExhibitionOwnerRole(userRole, requestedOwnerRole)}
+      />
     </div>
   );
 }
-

@@ -6,6 +6,7 @@ import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client'
 import { revalidatePath } from 'next/cache';
 import { createNotification } from '~/lib/notifications';
 import { CERTIFICATE_TYPES, USER_ROLES } from '~/lib/user-roles';
+import { ownerReceivesCertificateOfShow } from '../_helpers/exhibition-owner-roles';
 import {
   emailsMatch,
   hashClaimToken,
@@ -364,13 +365,19 @@ export async function submitExhibitionArtwork(
         ? USER_ROLES.INSTITUTION
         : USER_ROLES.GALLERY;
 
-    const { data: galleryProfile } = await asUntyped(adminClient)
-      .from('user_profiles')
-      .select('id')
-      .eq('user_id', exhibition.gallery_id)
-      .eq('role', galleryRole)
-      .eq('is_active', true)
-      .maybeSingle();
+    // Artist- or collector-run shows don't issue a Certificate of Show; the
+    // submitted COA is linked to the exhibition directly.
+    const issueCos = ownerReceivesCertificateOfShow(ownerRole);
+
+    const { data: galleryProfile } = issueCos
+      ? await asUntyped(adminClient)
+          .from('user_profiles')
+          .select('id')
+          .eq('user_id', exhibition.gallery_id)
+          .eq('role', galleryRole)
+          .eq('is_active', true)
+          .maybeSingle()
+      : { data: null };
 
     const createdCoaIds: string[] = [];
     const createdCosIds: string[] = [];
@@ -512,6 +519,16 @@ export async function submitExhibitionArtwork(
         }
       }
 
+      if (!issueCos) {
+        console.log('[Exhibitions] submitExhibitionArtwork artwork created', {
+          batchIndex: batch.batchIndex + 1,
+          index,
+          coaId,
+          ownerRole,
+        });
+        continue;
+      }
+
       let cosArtworkId: string;
       try {
         const { id } = await insertLinkedCoSFromArtistCoa(adminClient, coaArtwork, {
@@ -570,7 +587,7 @@ export async function submitExhibitionArtwork(
           consumed_at: now,
           consumed_by: user.id,
           result_artwork_id: sessionFirstCoaId,
-          result_cos_artwork_id: sessionFirstCosId,
+          result_cos_artwork_id: sessionFirstCosId || null,
         })
         .eq('id', invite.id);
 
@@ -580,8 +597,9 @@ export async function submitExhibitionArtwork(
         totalCount === 1
           ? `Artwork submitted: ${artworks.find((a) => !a.existingCoaId)?.title ?? 'Artwork'}`
           : `${totalCount} artworks submitted by ${artistName}`;
-      const notificationMessage =
-        totalCount === 1
+      const notificationMessage = !issueCos
+        ? `${artistName} submitted ${totalCount === 1 ? 'artwork' : `${totalCount} artworks`} for "${exhibition.title}". ${totalCount === 1 ? 'It has' : 'They have'} been added to your exhibition.`
+        : totalCount === 1
           ? `${artistName} submitted artwork for "${exhibition.title}". A Certificate of Show has been linked to your exhibition.`
           : `${artistName} submitted ${totalCount} artworks for "${exhibition.title}". Certificates of Show have been linked to your exhibition.`;
 
@@ -591,12 +609,12 @@ export async function submitExhibitionArtwork(
           type: 'exhibition_artwork_submitted',
           title: notificationTitle,
           message: notificationMessage,
-          artworkId: sessionFirstCosId,
+          artworkId: sessionFirstCosId || sessionFirstCoaId,
           relatedUserId: user.id,
           metadata: {
             exhibition_id: invite.exhibition_id,
             coa_artwork_id: sessionFirstCoaId,
-            cos_artwork_id: sessionFirstCosId,
+            cos_artwork_id: sessionFirstCosId || null,
             artwork_count: totalCount,
           },
         });
