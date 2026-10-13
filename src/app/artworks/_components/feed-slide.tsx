@@ -42,7 +42,10 @@ export function FeedSlide({
   };
 
   return (
-    <div className="h-[calc(100dvh-var(--nav-h)-var(--tabbar-h,0px))] w-full snap-start shrink-0">
+    <div
+      data-artwork-id={artwork.id}
+      className="h-[calc(100dvh-var(--nav-h)-var(--tabbar-h,0px))] w-full snap-start shrink-0"
+    >
       <div
         ref={trackRef}
         onScroll={handleTrackScroll}

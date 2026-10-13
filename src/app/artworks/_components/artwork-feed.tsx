@@ -5,8 +5,12 @@ import Link from 'next/link';
 import { Building2, Clock, Heart, Plus, Search, Shuffle, SlidersHorizontal, Users, X } from 'lucide-react';
 import { FeedSlide } from './feed-slide';
 import type { FeedArtwork } from './artist-panel';
+import { flushSeen, markSeen, readLocalSeen } from '~/lib/feed/seen-artworks';
 
 const PAGE_SIZE = 10;
+// How long a slide must stay mostly on screen before it counts as seen, so
+// flicking past doesn't burn artworks the viewer never looked at.
+const SEEN_DWELL_MS = 1000;
 
 type SortMode = 'shuffle' | 'recent' | 'top' | 'following' | 'exhibitions';
 
@@ -45,34 +49,41 @@ export function ArtworkFeed({
   const sentinelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const itemsRef = useRef<FeedArtwork[]>([]);
+  const markedRef = useRef(new Set<string>());
 
   const fetchPage = useCallback(
     async (pageOffset: number, q: string, append: boolean, sort: SortMode) => {
-      const params = new URLSearchParams({
+      const isDefault = sort === 'shuffle';
+      const body = {
         seed: seedRef.current,
-        offset: String(pageOffset),
-        limit: String(PAGE_SIZE),
+        offset: pageOffset,
+        limit: PAGE_SIZE,
         sort,
-      });
-      if (q.trim()) params.set('q', q.trim());
+        q: q.trim() || undefined,
+        // Default feed ranks by what this viewer has seen; see rankFeed.
+        exclude: isDefault && append ? itemsRef.current.map((a) => a.id) : [],
+        seen: isDefault && !isSignedIn ? readLocalSeen() : [],
+      };
 
       console.log('[ArtworkFeed] Fetching feed page', { pageOffset, q: q || null, sort });
 
-      const res = await fetch(`/api/artworks/feed?${params.toString()}`);
+      const res = await fetch('/api/artworks/feed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
       if (!res.ok) throw new Error('Failed to load feed');
 
       const data = (await res.json()) as { items: FeedArtwork[]; hasMore: boolean };
 
-      if (append) {
-        setItems((prev) => [...prev, ...data.items]);
-      } else {
-        setItems(data.items);
-        scrollRef.current?.scrollTo({ top: 0 });
-      }
+      itemsRef.current = append ? [...itemsRef.current, ...data.items] : data.items;
+      setItems(itemsRef.current);
+      if (!append) scrollRef.current?.scrollTo({ top: 0 });
       setOffset(pageOffset + data.items.length);
       setHasMore(data.hasMore);
     },
-    [],
+    [isSignedIn],
   );
 
   const loadInitial = useCallback(
@@ -108,6 +119,58 @@ export function ArtworkFeed({
   useEffect(() => {
     loadInitial(searchQuery, sortMode);
   }, [searchQuery, sortMode, loadInitial]);
+
+  // Mark slides seen once they've stayed mostly on screen for SEEN_DWELL_MS.
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+
+    const timers = new Map<Element, ReturnType<typeof setTimeout>>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const id = (entry.target as HTMLElement).dataset.artworkId;
+          if (!id) continue;
+          if (entry.isIntersecting) {
+            if (timers.has(entry.target) || markedRef.current.has(id)) continue;
+            timers.set(
+              entry.target,
+              setTimeout(() => {
+                timers.delete(entry.target);
+                markedRef.current.add(id);
+                markSeen(id, isSignedIn);
+              }, SEEN_DWELL_MS),
+            );
+          } else {
+            clearTimeout(timers.get(entry.target));
+            timers.delete(entry.target);
+          }
+        }
+      },
+      { root, threshold: 0.6 },
+    );
+
+    root.querySelectorAll('[data-artwork-id]').forEach((el) => observer.observe(el));
+
+    return () => {
+      observer.disconnect();
+      timers.forEach(clearTimeout);
+    };
+  }, [items, loading, isSignedIn]);
+
+  // Send any batched views before the page goes away.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flushSeen();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', flushSeen);
+    return () => {
+      flushSeen();
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', flushSeen);
+    };
+  }, []);
 
   // Close filter dropdown on outside click
   useEffect(() => {

@@ -15,6 +15,7 @@ export default defineConfig({
       'src/app/mailing-list/**/*.test.ts',
       'src/lib/crm/**/*.test.ts',
       'src/lib/moderation/**/*.test.ts',
+      'src/lib/feed/**/*.test.ts',
       'src/app/exhibitions/_helpers/**/*.test.ts',
     ],
   },
