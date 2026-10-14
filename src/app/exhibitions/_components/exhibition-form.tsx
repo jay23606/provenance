@@ -65,6 +65,9 @@ export function ExhibitionForm({
     location: exhibition?.location || '',
     curator: initialMetadata.curator || '',
     theme: initialMetadata.theme || '',
+    maxArtworksPerArtist: initialMetadata.max_artworks_per_artist
+      ? String(initialMetadata.max_artworks_per_artist)
+      : '',
   });
 
   // Only fill fields the user hasn't typed into yet.
@@ -97,6 +100,7 @@ export function ExhibitionForm({
         formDataObj.append('location', formData.location);
         formDataObj.append('curator', formData.curator);
         formDataObj.append('theme', formData.theme);
+        formDataObj.append('maxArtworksPerArtist', formData.maxArtworksPerArtist);
         if (!exhibition && ownerRole) {
           formDataObj.append('ownerRole', ownerRole);
         }
@@ -284,6 +288,27 @@ export function ExhibitionForm({
           selectedInvites={selectedInvites}
           onInvitesChange={setSelectedInvites}
         />
+
+        <div className="space-y-2">
+          <Label htmlFor="maxArtworksPerArtist">Artworks each artist can upload</Label>
+          <Input
+            id="maxArtworksPerArtist"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={100}
+            value={formData.maxArtworksPerArtist}
+            onChange={(e) =>
+              setFormData({ ...formData, maxArtworksPerArtist: e.target.value })
+            }
+            placeholder="No limit"
+            className="font-serif w-32"
+          />
+          <p className="text-xs text-ink/60 font-serif">
+            Applies to new invites. Invited artists can submit up to this many works
+            for you to select from; you can change it per artist below once invites are sent.
+          </p>
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="curator">Curator</Label>

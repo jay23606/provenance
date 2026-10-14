@@ -12,8 +12,10 @@ import { captureExhibitionContacts } from '~/lib/crm/capture-exhibition-contacts
 import { containsObjectionableText, OBJECTIONABLE_TEXT_MESSAGE } from '~/lib/moderation/text-filter';
 import {
   createExhibitionArtistInvites,
+  inviteCreditedArtists,
   type ExhibitionArtistInviteInput,
 } from './manage-exhibition-invites';
+import { exhibitionHasEnded, parseMaxArtworksPerArtist } from '../_helpers/exhibition-invite-limits';
 
 export async function createExhibition(formData: FormData) {
   console.log('[Exhibitions] createExhibition started');
@@ -55,6 +57,7 @@ export async function createExhibition(formData: FormData) {
   const theme = formData.get('theme') as string | null;
   const artistIdsJson = formData.get('artistIds') as string | null;
   const artistInvitesJson = formData.get('artistInvites') as string | null;
+  const maxArtworksPerArtist = parseMaxArtworksPerArtist(formData.get('maxArtworksPerArtist'));
   const ownerRoleInput = (formData.get('ownerRole') as string | null) || userRole;
 
   // An account can own exhibitions as an artist or as a gallery/institution
@@ -93,6 +96,9 @@ export async function createExhibition(formData: FormData) {
   }
   if (theme?.trim()) {
     metadata.theme = theme.trim();
+  }
+  if (maxArtworksPerArtist) {
+    metadata.max_artworks_per_artist = maxArtworksPerArtist;
   }
 
   const { data: exhibition, error } = await asUntyped(client)
@@ -166,6 +172,16 @@ export async function createExhibition(formData: FormData) {
       }
     } catch (e) {
       console.error('[Exhibitions] createExhibition artist invites failed', e);
+    }
+  }
+
+  // Credited platform artists get the same upload invite as emailed ones
+  // (skipped for past shows being catalogued after the fact).
+  if (artistIds.length > 0 && !exhibitionHasEnded(endDate)) {
+    try {
+      await inviteCreditedArtists(exhibition.id, artistIds);
+    } catch (e) {
+      console.error('[Exhibitions] createExhibition credited artist invites failed', e);
     }
   }
 

@@ -223,8 +223,10 @@ export async function sendExhibitionArtistInviteEmail(params: {
   exhibition: ExhibitionInviteDetails;
   senderName?: string;
   token: string;
+  /** Most artworks the artist may upload; null/undefined = no limit. */
+  maxArtworks?: number | null;
 }): Promise<void> {
-  const { to, recipientName, exhibition, senderName, token } = params;
+  const { to, recipientName, exhibition, senderName, token, maxArtworks } = params;
   const submitUrl = getExhibitionSubmitUrl(token);
   const fromLine = senderName ? ` by ${escapeMarkdown(senderName)}` : '';
   console.log('[Exhibitions] sendExhibitionArtistInviteEmail', {
@@ -232,6 +234,7 @@ export async function sendExhibitionArtistInviteEmail(params: {
     exhibitionTitle: exhibition.title,
     senderName,
     confirmedArtistCount: exhibition.confirmedArtists.length,
+    maxArtworks: maxArtworks ?? null,
   });
 
   const detailLines = [
@@ -243,6 +246,11 @@ export async function sendExhibitionArtistInviteEmail(params: {
   if (exhibition.confirmedArtists.length > 0) {
     detailLines.push(
       `**Confirmed artists:** ${exhibition.confirmedArtists.map(escapeMarkdown).join(', ')}`,
+    );
+  }
+  if (maxArtworks) {
+    detailLines.push(
+      `**Submissions:** up to ${maxArtworks} ${maxArtworks === 1 ? 'artwork' : 'artworks'}, from which the final selection will be made`,
     );
   }
 

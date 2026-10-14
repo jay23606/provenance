@@ -19,11 +19,14 @@ import {
 import { createNotification } from '~/lib/notifications';
 import { INVITE_TTL_MS } from '~/lib/certificate-claims/create-invite-batch';
 import { ownerReceivesCertificateOfShow } from '../_helpers/exhibition-owner-roles';
+import { parseMaxArtworksPerArtist } from '../_helpers/exhibition-invite-limits';
 
 export type ExhibitionArtistInviteInput = {
   email: string;
   name?: string | null;
   artistAccountId?: string | null;
+  /** Upload limit for this artist; omitted falls back to the exhibition default. */
+  maxArtworks?: number | null;
 };
 
 export type ExhibitionArtistInviteRow = {
@@ -33,6 +36,7 @@ export type ExhibitionArtistInviteRow = {
   invitee_name: string | null;
   artist_account_id: string | null;
   status: string;
+  max_artworks: number | null;
   expires_at: string;
   consumed_at: string | null;
   result_artwork_id: string | null;
@@ -45,11 +49,16 @@ const OPEN_STATUSES = ['pending', 'sent'];
 async function assertCanManageExhibition(
   userId: string,
   exhibitionId: string,
-): Promise<{ galleryId: string; title: string; details: ExhibitionInviteDetails }> {
+): Promise<{
+  galleryId: string;
+  title: string;
+  details: ExhibitionInviteDetails;
+  defaultMaxArtworks: number | null;
+}> {
   const client = asUntyped(getSupabaseServerClient());
   const { data: exhibition, error } = await asUntyped(client)
     .from('exhibitions')
-    .select('id, gallery_id, title, description, location, start_date, end_date, owner_role')
+    .select('id, gallery_id, title, description, location, start_date, end_date, owner_role, metadata')
     .eq('id', exhibitionId)
     .single();
 
@@ -74,6 +83,9 @@ async function assertCanManageExhibition(
       confirmedArtists: await getConfirmedArtistNames(exhibitionId),
       issuesCertificateOfShow: ownerReceivesCertificateOfShow(exhibition.owner_role),
     },
+    defaultMaxArtworks: parseMaxArtworksPerArtist(
+      (exhibition.metadata as Record<string, unknown> | null)?.max_artworks_per_artist,
+    ),
   };
 }
 
@@ -115,8 +127,9 @@ async function notifyInvitedArtist(params: {
   exhibitionId: string;
   details: ExhibitionInviteDetails;
   token: string;
+  maxArtworks: number | null;
 }): Promise<void> {
-  const { email, senderId, senderName, exhibitionId, details, token } = params;
+  const { email, senderId, senderName, exhibitionId, details, token, maxArtworks } = params;
   let recipientId = params.artistAccountId;
 
   if (!recipientId) {
@@ -133,13 +146,16 @@ async function notifyInvitedArtist(params: {
 
   const when = formatExhibitionDateRange(details.startDate, details.endDate);
   const where = details.location?.trim() ? ` at ${details.location.trim()}` : '';
+  const upload = maxArtworks
+    ? `Upload up to ${maxArtworks} ${maxArtworks === 1 ? 'artwork' : 'artworks'} for consideration.`
+    : "Upload the work you'll be showing.";
 
   try {
     await createNotification({
       userId: recipientId,
       type: 'exhibition_invite',
       title: `You're invited to show in "${details.title}"`,
-      message: `${senderName ?? 'An organiser'} invited you to exhibit${where}, ${when}. Upload the work you'll be showing.`,
+      message: `${senderName ?? 'An organiser'} invited you to exhibit${where}, ${when}. ${upload}`,
       relatedUserId: senderId,
       metadata: {
         exhibition_id: exhibitionId,
@@ -179,7 +195,7 @@ export async function createExhibitionArtistInvites(
     throw new Error('Unauthorized');
   }
 
-  const { title: exhibitionTitle, details } = await assertCanManageExhibition(
+  const { title: exhibitionTitle, details, defaultMaxArtworks } = await assertCanManageExhibition(
     user.id,
     exhibitionId,
   );
@@ -205,6 +221,8 @@ export async function createExhibitionArtistInvites(
     }
 
     const name = raw.name?.trim() || null;
+    const maxArtworks =
+      raw.maxArtworks === undefined ? defaultMaxArtworks : parseMaxArtworksPerArtist(raw.maxArtworks);
 
     try {
       const { data: existing } = await asUntyped(adminClient)
@@ -231,6 +249,7 @@ export async function createExhibitionArtistInvites(
           invitee_email: email,
           invitee_name: name,
           artist_account_id: raw.artistAccountId ?? null,
+          max_artworks: maxArtworks,
           token_hash: tokenHash,
           status: 'sent',
           expires_at: expiresAt,
@@ -250,6 +269,7 @@ export async function createExhibitionArtistInvites(
           exhibition: details,
           senderName,
           token,
+          maxArtworks,
         });
       } catch (emailErr) {
         console.error('[Exhibitions] createExhibitionArtistInvites email failed', emailErr);
@@ -264,6 +284,7 @@ export async function createExhibitionArtistInvites(
         exhibitionId,
         details,
         token,
+        maxArtworks,
       });
 
       crmContacts.push({
@@ -312,7 +333,7 @@ export async function getExhibitionInvites(
   const { data, error } = await asUntyped(adminClient)
     .from('exhibition_artist_invites')
     .select(
-      'id, exhibition_id, invitee_email, invitee_name, artist_account_id, status, expires_at, consumed_at, result_artwork_id, result_cos_artwork_id, created_at',
+      'id, exhibition_id, invitee_email, invitee_name, artist_account_id, status, max_artworks, expires_at, consumed_at, result_artwork_id, result_cos_artwork_id, created_at',
     )
     .eq('exhibition_id', exhibitionId)
     .order('created_at', { ascending: false });
@@ -342,7 +363,7 @@ export async function resendExhibitionInvite(
   const adminClient = getSupabaseServerAdminClient();
   const { data: invite, error: fetchError } = await asUntyped(adminClient)
     .from('exhibition_artist_invites')
-    .select('id, exhibition_id, invitee_email, invitee_name, artist_account_id, status')
+    .select('id, exhibition_id, invitee_email, invitee_name, artist_account_id, status, max_artworks')
     .eq('id', inviteId)
     .single();
 
@@ -355,10 +376,7 @@ export async function resendExhibitionInvite(
   }
 
   try {
-    const { title: exhibitionTitle, details } = await assertCanManageExhibition(
-      user.id,
-      invite.exhibition_id,
-    );
+    const { details } = await assertCanManageExhibition(user.id, invite.exhibition_id);
 
     const token = generateClaimToken();
     const tokenHash = hashClaimToken(token);
@@ -386,6 +404,7 @@ export async function resendExhibitionInvite(
       exhibition: details,
       senderName,
       token,
+      maxArtworks: invite.max_artworks ?? null,
     });
 
     await notifyInvitedArtist({
@@ -396,6 +415,7 @@ export async function resendExhibitionInvite(
       exhibitionId: invite.exhibition_id,
       details,
       token,
+      maxArtworks: invite.max_artworks ?? null,
     });
 
     revalidatePath(`/exhibitions/${invite.exhibition_id}/edit`);
@@ -473,6 +493,7 @@ export async function getExhibitionInviteContext(token: string): Promise<
       inviteeEmail: string;
       inviteeName: string | null;
       status: string;
+      maxArtworks: number | null;
     }
   | { valid: false; error: string }
 > {
@@ -487,7 +508,7 @@ export async function getExhibitionInviteContext(token: string): Promise<
   const { data: invite, error } = await asUntyped(adminClient)
     .from('exhibition_artist_invites')
     .select(
-      'id, invitee_email, invitee_name, status, expires_at, exhibition_id',
+      'id, invitee_email, invitee_name, status, max_artworks, expires_at, exhibition_id',
     )
     .eq('token_hash', tokenHash)
     .maybeSingle();
@@ -537,5 +558,158 @@ export async function getExhibitionInviteContext(token: string): Promise<
     inviteeEmail: invite.invitee_email,
     inviteeName: invite.invitee_name,
     status: invite.status,
+    maxArtworks: invite.max_artworks ?? null,
   };
+}
+
+export type CreditedArtistInviteStatus = {
+  artistAccountId: string;
+  name: string;
+  hasEmail: boolean;
+};
+
+/**
+ * Credited artists (exhibition_artists) who have never been sent an upload
+ * invite — open or submitted — for this exhibition. Emails stay server-side.
+ */
+async function findUninvitedCreditedArtists(
+  exhibitionId: string,
+  organiserId: string,
+  onlyArtistIds?: string[],
+): Promise<Array<CreditedArtistInviteStatus & { email: string | null }>> {
+  const adminClient = getSupabaseServerAdminClient();
+
+  let ids = onlyArtistIds;
+  if (!ids) {
+    const { data: rows, error } = await asUntyped(adminClient)
+      .from('exhibition_artists')
+      .select('artist_account_id')
+      .eq('exhibition_id', exhibitionId);
+    if (error) {
+      console.error('[Exhibitions] findUninvitedCreditedArtists artists failed', error);
+      return [];
+    }
+    ids = (rows ?? []).map((r: { artist_account_id: string }) => r.artist_account_id);
+  }
+  ids = [...new Set(ids)].filter((id) => id !== organiserId);
+  if (ids.length === 0) return [];
+
+  const [{ data: accounts }, { data: invites }] = await Promise.all([
+    asUntyped(adminClient).from('accounts').select('id, name, email').in('id', ids),
+    asUntyped(adminClient)
+      .from('exhibition_artist_invites')
+      .select('artist_account_id, invitee_email')
+      .eq('exhibition_id', exhibitionId)
+      .in('status', [...OPEN_STATUSES, 'consumed']),
+  ]);
+
+  const invitedIds = new Set<string>();
+  const invitedEmails = new Set<string>();
+  for (const inv of (invites ?? []) as Array<{ artist_account_id: string | null; invitee_email: string }>) {
+    if (inv.artist_account_id) invitedIds.add(inv.artist_account_id);
+    invitedEmails.add(normalizeInviteEmail(inv.invitee_email));
+  }
+
+  return ((accounts ?? []) as Array<{ id: string; name: string | null; email: string | null }>)
+    .map((account) => {
+      const email = account.email ? normalizeInviteEmail(account.email) : null;
+      return {
+        artistAccountId: account.id,
+        name: account.name?.trim() || 'Artist',
+        email,
+        hasEmail: !!email,
+      };
+    })
+    .filter(
+      (a) => !invitedIds.has(a.artistAccountId) && !(a.email && invitedEmails.has(a.email)),
+    );
+}
+
+export async function getUninvitedCreditedArtists(
+  exhibitionId: string,
+): Promise<CreditedArtistInviteStatus[]> {
+  const client = asUntyped(getSupabaseServerClient());
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  await assertCanManageExhibition(user.id, exhibitionId);
+  const artists = await findUninvitedCreditedArtists(exhibitionId, user.id);
+  return artists.map(({ artistAccountId, name, hasEmail }) => ({ artistAccountId, name, hasEmail }));
+}
+
+/**
+ * Sends the upload invite (email + in-app notification, which triggers push)
+ * to credited platform artists. Picking an artist in the participant search
+ * only credits them, so without this they never hear about the exhibition.
+ * Pass artistAccountIds to limit to newly credited artists.
+ */
+export async function inviteCreditedArtists(
+  exhibitionId: string,
+  artistAccountIds?: string[],
+): Promise<{ sent: number; skipped: number; noEmail: string[]; errors: string[] }> {
+  const client = asUntyped(getSupabaseServerClient());
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+  if (!user) throw new Error('Unauthorized');
+
+  await assertCanManageExhibition(user.id, exhibitionId);
+
+  const artists = await findUninvitedCreditedArtists(exhibitionId, user.id, artistAccountIds);
+  const noEmail = artists.filter((a) => !a.email).map((a) => a.name);
+  const invites = artists
+    .filter((a): a is typeof a & { email: string } => !!a.email)
+    .map((a) => ({ email: a.email, name: a.name, artistAccountId: a.artistAccountId }));
+
+  console.log('[Exhibitions] inviteCreditedArtists', {
+    exhibitionId,
+    inviting: invites.length,
+    noEmail: noEmail.length,
+  });
+
+  if (invites.length === 0) {
+    return { sent: 0, skipped: 0, noEmail, errors: [] };
+  }
+
+  const result = await createExhibitionArtistInvites(exhibitionId, invites);
+  return { ...result, noEmail };
+}
+
+export async function updateExhibitionInviteLimit(
+  inviteId: string,
+  maxArtworks: number | null,
+): Promise<{ success: boolean; error?: string }> {
+  const client = asUntyped(getSupabaseServerClient());
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+  if (!user) return { success: false, error: 'Unauthorized' };
+
+  const adminClient = getSupabaseServerAdminClient();
+  const { data: invite, error: fetchError } = await asUntyped(adminClient)
+    .from('exhibition_artist_invites')
+    .select('id, exhibition_id')
+    .eq('id', inviteId)
+    .single();
+  if (fetchError || !invite) return { success: false, error: 'Invite not found' };
+
+  try {
+    await assertCanManageExhibition(user.id, invite.exhibition_id);
+
+    const { error } = await asUntyped(adminClient)
+      .from('exhibition_artist_invites')
+      .update({ max_artworks: parseMaxArtworksPerArtist(maxArtworks) })
+      .eq('id', inviteId);
+    if (error) {
+      console.error('[Exhibitions] updateExhibitionInviteLimit failed', error);
+      return { success: false, error: 'Could not update limit' };
+    }
+
+    revalidatePath(`/exhibitions/${invite.exhibition_id}/edit`);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Update failed' };
+  }
 }

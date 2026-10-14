@@ -24,6 +24,7 @@ export default async function ExhibitionSubmitPage({ searchParams }: PageProps) 
         issuesCertificateOfShow: result.issuesCertificateOfShow,
         inviteeEmail: result.inviteeEmail,
         inviteeName: result.inviteeName,
+        maxArtworks: result.maxArtworks,
       };
     } else {
       contextError = result.error;
