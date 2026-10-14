@@ -2422,7 +2422,8 @@ export function SpreadsheetEditForm({
       <div
         className={cn(
           'flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:items-center',
-          'sticky bottom-0 z-20 -mx-4 px-4 sm:mx-0 sm:px-0',
+          // Clear the native tab bar (--tabbar-h is 0 on the web).
+          'sticky bottom-[calc(var(--tabbar-h,0px)+env(safe-area-inset-bottom,0px))] z-20 -mx-4 px-4 sm:mx-0 sm:px-0',
           'border-t border-wine/20 bg-parchment/95 backdrop-blur-md py-4',
           'pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-4',
         )}

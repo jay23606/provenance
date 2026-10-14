@@ -19,12 +19,12 @@ import { restrictToHorizontalAxis } from '@dnd-kit/modifiers';
 import { Button } from '@kit/ui/button';
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@kit/ui/dialog';
+import { EditorialDialogContent } from '~/components/editorial-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1047,7 +1047,7 @@ export function LeadsKanban({
 
       {/* ── Add dialog ── */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-xl max-h-[min(90vh,920px)] overflow-y-auto">
+        <EditorialDialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display text-wine">Add Contact</DialogTitle>
             <DialogDescription className="font-serif text-sm">Track a new collector or buyer lead.</DialogDescription>
@@ -1068,12 +1068,12 @@ export function LeadsKanban({
               {pending ? 'Adding…' : 'Add contact'}
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </EditorialDialogContent>
       </Dialog>
 
       {/* ── Edit dialog ── */}
       <Dialog open={editLead !== null} onOpenChange={(open) => { if (!open) setEditLead(null); }}>
-        <DialogContent className="sm:max-w-xl max-h-[min(90vh,920px)] overflow-y-auto">
+        <EditorialDialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display text-wine">Edit Contact</DialogTitle>
             <DialogDescription className="font-serif text-sm">Update contact details and deal info.</DialogDescription>
@@ -1094,7 +1094,7 @@ export function LeadsKanban({
               {pending ? 'Saving…' : 'Save changes'}
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </EditorialDialogContent>
       </Dialog>
 
       {/* ── Delete confirmation ── */}

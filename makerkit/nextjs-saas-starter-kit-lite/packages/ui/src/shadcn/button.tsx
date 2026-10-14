@@ -53,6 +53,7 @@ const Button: React.FC<ButtonProps> = ({
 
   return (
     <Comp
+      data-variant={variant ?? 'default'}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

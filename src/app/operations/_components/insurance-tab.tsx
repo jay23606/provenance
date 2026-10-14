@@ -16,12 +16,12 @@ import { Button } from '@kit/ui/button';
 import { Badge } from '@kit/ui/badge';
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@kit/ui/dialog';
+import { EditorialDialogContent } from '~/components/editorial-dialog';
 import { Input } from '@kit/ui/input';
 import { Label } from '@kit/ui/label';
 import { Textarea } from '@kit/ui/textarea';
@@ -352,7 +352,7 @@ export function InsuranceTab({ rows, artworks, artworkTitleById }: Props) {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg font-serif border-wine/20">
+        <EditorialDialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-display text-wine">
               {editing ? 'Edit insurance / valuation' : 'New insurance / valuation'}
@@ -501,7 +501,7 @@ export function InsuranceTab({ rows, artworks, artworkTitleById }: Props) {
               </Button>
             </DialogFooter>
           )}
-        </DialogContent>
+        </EditorialDialogContent>
       </Dialog>
     </>
   );

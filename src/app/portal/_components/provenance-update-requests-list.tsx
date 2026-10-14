@@ -5,7 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@kit/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@kit/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@kit/ui/dialog';
+import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@kit/ui/dialog';
+import { EditorialDialogContent } from '~/components/editorial-dialog';
 import { Textarea } from '@kit/ui/textarea';
 import { Label } from '@kit/ui/label';
 import { toast } from '@kit/ui/sonner';
@@ -158,7 +159,7 @@ export function ProvenanceUpdateRequestsList({
 
       {/* Review Dialog */}
       <Dialog open={!!selectedRequest} onOpenChange={(open) => !open && setSelectedRequest(null)}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto font-serif">
+        <EditorialDialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="font-display text-wine">
               {selectedRequest?.request_type === 'ownership_request' 
@@ -285,7 +286,7 @@ export function ProvenanceUpdateRequestsList({
               {pending ? 'Processing...' : 'Approve'}
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </EditorialDialogContent>
       </Dialog>
     </>
   );
