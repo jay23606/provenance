@@ -3,13 +3,13 @@
 import { useState, useTransition, useEffect } from 'react';
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@kit/ui/dialog';
+import { EditorialDialogContent } from '~/components/editorial-dialog';
 import { Button } from '@kit/ui/button';
 import { Input } from '@kit/ui/input';
 import { Label } from '@kit/ui/label';
@@ -185,7 +185,7 @@ export function RequestUpdateDialog({ artwork }: { artwork: Artwork }) {
             Request Update
           </Button>
         </DialogTrigger>
-        <DialogContent className={requestType === 'ownership_request' ? 'sm:max-w-lg font-serif' : 'sm:max-w-2xl max-h-[90vh] overflow-y-auto font-serif'}>
+        <EditorialDialogContent className={requestType === 'ownership_request' ? 'sm:max-w-lg font-serif' : 'sm:max-w-2xl max-h-[90vh] overflow-y-auto font-serif'}>
           <DialogHeader>
             <DialogTitle className="font-display text-wine">
               {requestType === 'ownership_request' ? 'Request Ownership' : 'Request Provenance Update'}
@@ -432,7 +432,7 @@ export function RequestUpdateDialog({ artwork }: { artwork: Artwork }) {
               </DialogFooter>
             </form>
           )}
-        </DialogContent>
+        </EditorialDialogContent>
       </Dialog>
     </div>
   );

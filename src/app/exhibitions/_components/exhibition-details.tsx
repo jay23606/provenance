@@ -10,12 +10,12 @@ import { Label } from '@kit/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@kit/ui/tabs';
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@kit/ui/dialog';
+import { EditorialDialogContent } from '~/components/editorial-dialog';
 import { toast } from '@kit/ui/sonner';
 import { useRouter } from 'next/navigation';
 import {
@@ -677,7 +677,7 @@ function AddArtworkDialog({
           Add Artwork
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl max-h-[min(90vh,720px)] overflow-y-auto">
+      <EditorialDialogContent className="sm:max-w-xl">
         <datalist id={ARTIST_DATALIST_ID}>
           {datalistOptions.map((name) => (
             <option key={name} value={name} />
@@ -963,7 +963,7 @@ function AddArtworkDialog({
             </div>
           </TabsContent>
         </Tabs>
-      </DialogContent>
+      </EditorialDialogContent>
     </Dialog>
   );
 }

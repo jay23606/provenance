@@ -3,10 +3,9 @@
 import { useState, useTransition, useEffect, useRef } from 'react';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@kit/ui/dialog';
@@ -21,7 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { editArtwork } from '../_actions/edit-artwork';
 import type { Artwork } from './certificate-of-authenticity';
 import Image from 'next/image';
-import { X, Upload } from 'lucide-react';
+import { X, Upload, ArrowRight } from 'lucide-react';
+import { cn } from '@kit/ui/utils';
 import { sendArtistClaimInvite } from '../_actions/send-artist-claim-invite';
 import { CERTIFICATE_TYPES, type CertificateType } from '~/lib/user-roles';
 import { ArtworkTagPicker } from '~/app/artworks/_components/artwork-tag-picker';
@@ -31,6 +31,15 @@ import {
   prepareImageForUpload,
   MAX_UPLOAD_IMAGE_BYTES,
 } from '~/lib/client-image-upload';
+import {
+  FIELD_LABEL,
+  FIELD_INPUT,
+  FIELD_TEXTAREA,
+  FIELD_HINT,
+  BUTTON_PRIMARY,
+  BUTTON_SECONDARY,
+  FieldSection,
+} from '~/components/editorial-form';
 
 type Exhibition = {
   id: string;
@@ -266,77 +275,120 @@ export function EditArtworkDialog({
           Edit
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto font-serif">
-        <DialogHeader>
-          <DialogTitle className="font-display text-wine">
-            {isCreator ? 'Edit Artwork' : 'Request Edit'}
-          </DialogTitle>
-          <DialogDescription>
-            {isCreator 
-              ? `Edit the information for "${artwork.title}". Changes will be applied immediately.`
-              : `Request edits to "${artwork.title}". The creator will review your request.`}
+      <DialogContent
+        hideCloseButton
+        // Don't auto-focus the first field: on iOS that raises the keyboard
+        // the moment the sheet opens and shoves the layout around.
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className={cn(
+          // Phone: bottom sheet above the app chrome. sm+: centred card.
+          'max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-w-none sm:max-w-2xl',
+          'max-sm:data-[state=open]:slide-in-from-bottom-8 max-sm:data-[state=open]:zoom-in-100',
+          'flex flex-col gap-0 p-0 overflow-hidden rounded-none sm:rounded-none',
+          'max-h-[calc(100dvh-2.5rem)] sm:max-h-[88dvh]',
+          'bg-bone text-editorial-ink border-0 border-t border-editorial-border sm:border shadow-editorial font-serif',
+          'pb-[env(safe-area-inset-bottom)]',
+        )}
+      >
+        {/* Header — pinned, owns the close button so it can never scroll away */}
+        <div className="shrink-0 px-5 pt-3 pb-4 sm:px-7 sm:pt-6 border-b border-editorial-border/15">
+          <div aria-hidden className="mx-auto mb-3 h-1 w-9 rounded-full bg-editorial-ink/15 sm:hidden" />
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className={FIELD_LABEL}>
+                Certificate <span className="text-vermillion">/</span>{' '}
+                {isCreator ? 'Edit' : 'Edit request'}
+              </p>
+              <DialogTitle className="mt-2 font-fraunces italic font-normal text-[1.75rem] leading-none tracking-tight text-editorial-ink">
+                {isCreator ? 'Edit artwork' : 'Request edit'}
+                <span className="text-vermillion">.</span>
+              </DialogTitle>
+            </div>
+            <DialogClose
+              className="shrink-0 grid h-9 w-9 place-items-center border border-editorial-border/25 text-editorial-ink/70 transition-colors hover:border-editorial-border hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-vermillion/30"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </DialogClose>
+          </div>
+          <DialogDescription className="mt-3 font-serif text-sm leading-snug text-editorial-ink/60">
+            {isCreator ? (
+              <>Changes to <span className="text-editorial-ink">“{artwork.title}”</span> apply immediately.</>
+            ) : (
+              <>Propose changes to <span className="text-editorial-ink">“{artwork.title}”</span>. The creator reviews every request.</>
+            )}
           </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {!isCreator && (
-            <div>
-              <Label htmlFor="request_message">Message (Optional)</Label>
-              <Textarea
-                id="request_message"
-                value={formData.request_message}
-                onChange={(e) => setFormData({ ...formData, request_message: e.target.value })}
-                placeholder="Explain why you're requesting these edits..."
-                rows={3}
-                className="font-serif"
-              />
-            </div>
-          )}
+        </div>
 
-          <div className="space-y-4 border-t pt-4">
-            <h3 className="font-display text-wine font-semibold">
-              {isCreator ? 'Edit Fields' : 'Proposed Changes'}
-            </h3>
-            
-            <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="font-serif"
-                required
-              />
-            </div>
-
-            {isCreator && (
-              <ArtworkTagPicker selectedTags={selectedTags} onChange={setSelectedTags} />
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          {/* Body — the only part that scrolls */}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-7 space-y-8">
+            {!isCreator && (
+              <section className="space-y-5">
+                <FieldSection index="01" title="Your note" />
+                <div className="space-y-2.5">
+                  <Label htmlFor="request_message" className={FIELD_LABEL}>
+                    Message <span className="normal-case tracking-normal text-editorial-ink/40">— optional</span>
+                  </Label>
+                  <Textarea
+                    id="request_message"
+                    value={formData.request_message}
+                    onChange={(e) => setFormData({ ...formData, request_message: e.target.value })}
+                    placeholder="What should change, and why?"
+                    rows={3}
+                    className={FIELD_TEXTAREA}
+                  />
+                </div>
+              </section>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="image">Image</Label>
-              <div className="space-y-2">
+            <section className="space-y-6">
+              <FieldSection
+                index={isCreator ? '01' : '02'}
+                title={isCreator ? 'Details' : 'Proposed changes'}
+              />
+
+              <div className="space-y-1.5">
+                <Label htmlFor="title" className={FIELD_LABEL}>Title</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className={FIELD_INPUT}
+                  required
+                />
+              </div>
+
+              {isCreator && (
+                <ArtworkTagPicker selectedTags={selectedTags} onChange={setSelectedTags} />
+              )}
+
+              <div className="space-y-2.5">
+                <Label htmlFor="image" className={FIELD_LABEL}>Image</Label>
                 {imagePreview && (
-                  <div className="relative w-full max-w-md border-2 border-wine/20 rounded-lg p-2">
+                  <figure className="relative border border-editorial-border/20 bg-cream/60 p-3">
                     <Image
                       src={imagePreview}
                       alt="Preview"
                       width={400}
                       height={300}
-                      className="w-full h-auto object-contain max-h-64"
+                      className="mx-auto h-auto max-h-64 w-full object-contain"
                       unoptimized
                     />
-                    {imageFile && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={removeImage}
-                        className="absolute top-2 right-2"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+                    <figcaption className="mt-3 flex items-center justify-between border-t border-editorial-border/15 pt-2.5 font-jetbrains text-[9px] uppercase tracking-[0.18em] text-editorial-ink/50">
+                      <span>{imageFile ? 'New image' : 'Current image'}</span>
+                      {imageFile && (
+                        <button
+                          type="button"
+                          onClick={removeImage}
+                          className="inline-flex items-center gap-1 text-vermillion hover:text-oxblood transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                          Revert
+                        </button>
+                      )}
+                    </figcaption>
+                  </figure>
                 )}
                 <input
                   ref={fileInputRef}
@@ -350,104 +402,106 @@ export function EditArtworkDialog({
                   type="button"
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
-                  className="font-serif border-wine/30 hover:bg-wine/10"
+                  className={cn(BUTTON_SECONDARY, 'w-full sm:w-auto')}
                 >
-                  <Upload className="mr-2 h-4 w-4" />
-                  {imagePreview ? 'Change Image' : 'Upload Image'}
+                  <Upload className="mr-2 h-3.5 w-3.5" />
+                  {imagePreview ? 'Replace image' : 'Upload image'}
                 </Button>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="artist_name">Artist</Label>
-              <Input
-                id="artist_name"
-                value={formData.artist_name}
-                onChange={(e) => setFormData({ ...formData, artist_name: e.target.value })}
-                className="font-serif"
-              />
-            </div>
-
-            {isCreator && canInviteArtistFromThisCertificate && (
-              <div className="space-y-2">
-                <Label htmlFor="artist_invite_email">Artist Email</Label>
-                <div className="flex flex-col sm:flex-row gap-2">
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="artist_name" className={FIELD_LABEL}>Artist</Label>
                   <Input
-                    id="artist_invite_email"
-                    type="email"
-                    autoComplete="email"
-                    value={artistInviteEmail}
-                    onChange={(e) => setArtistInviteEmail(e.target.value)}
-                    placeholder="artist@example.com"
-                    className="font-serif"
+                    id="artist_name"
+                    value={formData.artist_name}
+                    onChange={(e) => setFormData({ ...formData, artist_name: e.target.value })}
+                    className={FIELD_INPUT}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="font-serif border-wine/30 hover:bg-wine/10"
-                    disabled={pending || !artistInviteEmail.trim()}
-                    onClick={() => {
-                      startTransition(async () => {
-                        try {
-                          const result = await sendArtistClaimInvite(artwork.id, artistInviteEmail);
-                          if (!result.success) {
-                            toast.error(result.error || 'Failed to send claim invite');
-                            return;
-                          }
-                          toast.success('Claim email sent. The artist can now click Claim to create a matching Certificate of Authenticity.');
-                          setArtistInviteEmail('');
-                        } catch (error) {
-                          console.error('[Certificates] EditArtworkDialog sendArtistClaimInvite failed', error);
-                          toast.error('Failed to send claim invite');
-                        }
-                      });
-                    }}
-                  >
-                    {pending ? 'Sending...' : 'Send claim invite'}
-                  </Button>
                 </div>
-                <p className="text-xs text-ink/60 font-serif">
-                  Sends a secure claim link. The artist signs in with this email and creates a linked Certificate of Authenticity.
-                </p>
-              </div>
-            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="created_at">Date Certified</Label>
-              <Input
-                id="created_at"
-                type="date"
-                value={formData.created_at}
-                onChange={(e) => setFormData({ ...formData, created_at: e.target.value })}
-                className="font-serif"
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="created_at" className={FIELD_LABEL}>Date certified</Label>
+                  <Input
+                    id="created_at"
+                    type="date"
+                    value={formData.created_at}
+                    onChange={(e) => setFormData({ ...formData, created_at: e.target.value })}
+                    className={FIELD_INPUT}
+                  />
+                </div>
+              </div>
+
+              {isCreator && canInviteArtistFromThisCertificate && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="artist_invite_email" className={FIELD_LABEL}>Artist email</Label>
+                  <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                    <Input
+                      id="artist_invite_email"
+                      type="email"
+                      autoComplete="email"
+                      value={artistInviteEmail}
+                      onChange={(e) => setArtistInviteEmail(e.target.value)}
+                      placeholder="artist@example.com"
+                      className={FIELD_INPUT}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(BUTTON_SECONDARY, 'shrink-0')}
+                      disabled={pending || !artistInviteEmail.trim()}
+                      onClick={() => {
+                        startTransition(async () => {
+                          try {
+                            const result = await sendArtistClaimInvite(artwork.id, artistInviteEmail);
+                            if (!result.success) {
+                              toast.error(result.error || 'Failed to send claim invite');
+                              return;
+                            }
+                            toast.success('Claim email sent. The artist can now click Claim to create a matching Certificate of Authenticity.');
+                            setArtistInviteEmail('');
+                          } catch (error) {
+                            console.error('[Certificates] EditArtworkDialog sendArtistClaimInvite failed', error);
+                            toast.error('Failed to send claim invite');
+                          }
+                        });
+                      }}
+                    >
+                      {pending ? 'Sending…' : 'Send claim invite'}
+                    </Button>
+                  </div>
+                  <p className={FIELD_HINT}>
+                    Sends a secure claim link. The artist signs in with this email and creates a linked Certificate of Authenticity.
+                  </p>
+                </div>
+              )}
+            </section>
 
             {exhibition && (
-              <div className="space-y-4 border border-wine/20 rounded-lg p-4">
-                <h4 className="font-display text-wine font-semibold text-sm">Exhibition Details</h4>
-                
+              <section className="space-y-6">
+                <FieldSection index={isCreator ? '02' : '03'} title="Exhibition" />
+
                 {exhibitions.length > 0 && (
-                  <div className="space-y-2">
-                    <Label htmlFor="exhibitionId">Link to Exhibition</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="exhibitionId" className={FIELD_LABEL}>Link to exhibition</Label>
                     <Select
                       value={formData.exhibitionId || '__none__'}
                       onValueChange={(value) => {
                         setFormData({ ...formData, exhibitionId: value === '__none__' ? '' : value });
                       }}
                     >
-                      <SelectTrigger id="exhibitionId" className="font-serif">
+                      <SelectTrigger id="exhibitionId" className={FIELD_INPUT}>
                         <SelectValue placeholder="Select an exhibition (optional)" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__" className="font-serif">
+                      <SelectContent className="rounded-none border-editorial-border bg-bone">
+                        <SelectItem value="__none__" className="font-serif rounded-none">
                           None
                         </SelectItem>
                         {exhibitions.map((ex) => (
-                          <SelectItem key={ex.id} value={ex.id} className="font-serif">
+                          <SelectItem key={ex.id} value={ex.id} className="font-serif rounded-none">
                             {ex.title}
                             {ex.start_date && (
-                              <span className="text-xs text-ink/60 ml-2">
+                              <span className="text-xs text-editorial-ink/50 ml-2">
                                 ({new Date(ex.start_date).getFullYear()})
                               </span>
                             )}
@@ -460,106 +514,102 @@ export function EditArtworkDialog({
 
                 {userOwnsExhibition ? (
                   <>
-                    <div className="space-y-2">
-                      <Label htmlFor="exhibitionTitle">Exhibition Title</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="exhibitionTitle" className={FIELD_LABEL}>Exhibition title</Label>
                       <Input
                         id="exhibitionTitle"
                         value={formData.exhibitionTitle}
                         onChange={(e) => setFormData({ ...formData, exhibitionTitle: e.target.value })}
-                        className="font-serif"
+                        className={FIELD_INPUT}
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="exhibitionStartDate">Start Date</Label>
+                    <div className="grid grid-cols-2 gap-5">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="exhibitionStartDate" className={FIELD_LABEL}>Opens</Label>
                         <Input
                           id="exhibitionStartDate"
                           type="date"
                           value={formData.exhibitionStartDate}
                           onChange={(e) => setFormData({ ...formData, exhibitionStartDate: e.target.value })}
-                          className="font-serif"
+                          className={FIELD_INPUT}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="exhibitionEndDate">End Date</Label>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="exhibitionEndDate" className={FIELD_LABEL}>Closes</Label>
                         <Input
                           id="exhibitionEndDate"
                           type="date"
                           value={formData.exhibitionEndDate}
                           onChange={(e) => setFormData({ ...formData, exhibitionEndDate: e.target.value })}
-                          className="font-serif"
+                          className={FIELD_INPUT}
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="exhibitionLocation">Location</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="exhibitionLocation" className={FIELD_LABEL}>Location</Label>
                       <Input
                         id="exhibitionLocation"
                         value={formData.exhibitionLocation}
                         onChange={(e) => setFormData({ ...formData, exhibitionLocation: e.target.value })}
                         placeholder="e.g., San Antonio, Tx"
-                        className="font-serif"
+                        className={FIELD_INPUT}
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="exhibitionGallery">Gallery</Label>
-                      <div className="space-y-2">
-                        <Input
-                          id="exhibitionGallery"
-                          value={gallerySearchQuery || (exhibition.gallery?.name || '')}
-                          onChange={(e) => {
-                            setGallerySearchQuery(e.target.value);
-                            if (!e.target.value) {
-                              setFormData({ ...formData, exhibitionGalleryId: '' });
-                            }
-                          }}
-                          placeholder="Search for a gallery..."
-                          className="font-serif"
-                        />
-                        {gallerySearchQuery.length >= 2 && gallerySearchResults.length > 0 && (
-                          <div className="border border-wine/20 rounded-md bg-white shadow-lg max-h-48 overflow-y-auto">
-                            {gallerySearchResults.map((gallery) => (
-                              <button
-                                key={gallery.id}
-                                type="button"
-                                onClick={() => {
-                                  setFormData({ ...formData, exhibitionGalleryId: gallery.id });
-                                  setGallerySearchQuery(gallery.name);
-                                }}
-                                className="w-full px-4 py-2 text-left hover:bg-wine/10 transition-colors flex items-center gap-3"
-                              >
-                                {gallery.picture_url && (
-                                  <Image
-                                    src={gallery.picture_url}
-                                    alt={gallery.name}
-                                    width={32}
-                                    height={32}
-                                    className="rounded-full object-cover"
-                                    unoptimized
-                                  />
-                                )}
-                                <span className="text-sm font-serif text-ink">{gallery.name}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {exhibition.gallery && !gallerySearchQuery && (
-                          <p className="text-xs text-ink/60 font-serif">
-                            Current: {exhibition.gallery.name}
-                          </p>
-                        )}
-                      </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="exhibitionGallery" className={FIELD_LABEL}>Gallery</Label>
+                      <Input
+                        id="exhibitionGallery"
+                        value={gallerySearchQuery || (exhibition.gallery?.name || '')}
+                        onChange={(e) => {
+                          setGallerySearchQuery(e.target.value);
+                          if (!e.target.value) {
+                            setFormData({ ...formData, exhibitionGalleryId: '' });
+                          }
+                        }}
+                        placeholder="Search for a gallery…"
+                        className={FIELD_INPUT}
+                      />
+                      {gallerySearchQuery.length >= 2 && gallerySearchResults.length > 0 && (
+                        <div className="border border-editorial-border bg-bone shadow-editorial max-h-48 overflow-y-auto">
+                          {gallerySearchResults.map((gallery) => (
+                            <button
+                              key={gallery.id}
+                              type="button"
+                              onClick={() => {
+                                setFormData({ ...formData, exhibitionGalleryId: gallery.id });
+                                setGallerySearchQuery(gallery.name);
+                              }}
+                              className="w-full px-4 py-2.5 text-left hover:bg-editorial-ink/[0.04] transition-colors flex items-center gap-3 border-b border-editorial-border/10 last:border-b-0"
+                            >
+                              {gallery.picture_url && (
+                                <Image
+                                  src={gallery.picture_url}
+                                  alt={gallery.name}
+                                  width={32}
+                                  height={32}
+                                  className="rounded-full object-cover"
+                                  unoptimized
+                                />
+                              )}
+                              <span className="text-sm font-serif text-editorial-ink">{gallery.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {exhibition.gallery && !gallerySearchQuery && (
+                        <p className={FIELD_HINT}>Current: {exhibition.gallery.name}</p>
+                      )}
                     </div>
                   </>
                 ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm text-ink/80 font-serif">
+                  <div className="border-l-2 border-vermillion/60 pl-4 space-y-1">
+                    <p className="text-sm text-editorial-ink font-serif">
                       {exhibition.title}
                       {exhibition.start_date && (
-                        <span className="ml-1">
+                        <span className="ml-1 text-editorial-ink/60">
                           ({new Date(exhibition.start_date).toLocaleDateString('en-US', {
                             month: 'long',
                             day: 'numeric',
@@ -572,32 +622,33 @@ export function EditArtworkDialog({
                           })}`})
                         </span>
                       )}
-                      {exhibition.location && <span className="ml-1">- {exhibition.location}</span>}
+                      {exhibition.location && <span className="ml-1 text-editorial-ink/60">- {exhibition.location}</span>}
                     </p>
-                    <p className="text-xs text-ink/60 font-serif italic">
-                      (Only the exhibition owner can edit these details)
+                    <p className={cn(FIELD_HINT, 'italic')}>
+                      Only the exhibition owner can edit these details.
                     </p>
                   </div>
                 )}
-              </div>
+              </section>
             )}
 
             {creatorInfo && (
-              <div className="space-y-2">
-                <Label>
-                  {creatorInfo.role === 'gallery' ? 'Uploaded by Gallery' : 'Created by'}
-                </Label>
-                <p className="text-sm text-ink/80 font-serif">
+              <div className="flex items-baseline justify-between gap-4 border-t border-editorial-border/15 pt-4">
+                <span className={FIELD_LABEL}>
+                  {creatorInfo.role === 'gallery' ? 'Uploaded by gallery' : 'Created by'}
+                </span>
+                <span className="text-right text-sm font-serif text-editorial-ink">
                   {creatorInfo.name}
-                  <span className="text-xs text-ink/60 ml-2 italic">
-                    (cannot be changed)
+                  <span className="block font-jetbrains text-[9px] uppercase tracking-[0.18em] text-editorial-ink/40">
+                    Locked
                   </span>
-                </p>
+                </span>
               </div>
             )}
           </div>
 
-          <DialogFooter>
+          {/* Footer — pinned action bar */}
+          <div className="shrink-0 grid grid-cols-[auto_1fr] gap-3 border-t border-editorial-border/15 bg-bone/95 backdrop-blur-sm px-5 py-3.5 sm:px-7 sm:flex sm:justify-end">
             <Button
               type="button"
               variant="outline"
@@ -621,23 +672,25 @@ export function EditArtworkDialog({
                 setImagePreview(artwork.image_url || null);
               }}
               disabled={pending}
-              className="font-serif"
+              className={BUTTON_SECONDARY}
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={pending}
-              className="bg-wine text-parchment hover:bg-wine/90 font-serif"
+              className={cn(BUTTON_PRIMARY, 'group')}
             >
-              {pending 
-                ? (isCreator ? 'Saving...' : 'Submitting...') 
-                : (isCreator ? 'Save Changes' : 'Submit Request')}
+              {pending
+                ? (isCreator ? 'Saving…' : 'Submitting…')
+                : (isCreator ? 'Save changes' : 'Submit request')}
+              {!pending && (
+                <ArrowRight className="ml-2 h-3.5 w-3.5 text-vermillion transition-transform group-hover:translate-x-0.5" />
+              )}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
   );
 }
-

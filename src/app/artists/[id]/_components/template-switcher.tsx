@@ -43,7 +43,7 @@ export function TemplateSwitcher({ current }: TemplateSwitcherProps) {
   );
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+    <div className="fixed bottom-[calc(1.5rem+var(--tabbar-h,0px)+env(safe-area-inset-bottom,0px))] right-6 z-50 flex flex-col items-end gap-2">
       {open && (
         <div className="rounded-lg border border-parchment/20 bg-ink/90 text-parchment backdrop-blur-md shadow-xl p-2 min-w-[160px] font-mono text-[11px]">
           <button

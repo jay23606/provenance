@@ -372,3 +372,218 @@
     display: none !important;
   }
 }
+
+/* ── Editorial dialog (EditorialDialogContent) ─────────────────────────────
+   Unlayered on purpose: these must beat the ui-kit's layered utilities so
+   existing forms restyle without per-field classes. Vocabulary mirrors the
+   navbar — mono uppercase labels, ink hairlines, square corners, vermillion
+   focus rule. */
+.editorial-dialog {
+  --ed-px: 1.25rem;
+  --ed-pb: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  --ed-hairline: color-mix(in oklab, var(--editorial-border) 15%, transparent);
+  --ed-field-line: color-mix(in oklab, var(--editorial-border) 30%, transparent);
+  padding: 0 var(--ed-px) var(--ed-pb);
+}
+@media (min-width: 640px) {
+  .editorial-dialog {
+    --ed-px: 1.75rem;
+  }
+}
+
+/* Close button — a zero-height sticky bar so it never scrolls away */
+.editorial-dialog__close-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 0;
+  margin-bottom: -1.25rem; /* cancel the flex gap */
+}
+.editorial-dialog__close {
+  position: absolute;
+  top: 1rem;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid color-mix(in oklab, var(--editorial-border) 25%, transparent);
+  background: var(--bone);
+  color: color-mix(in oklab, var(--editorial-ink) 70%, transparent);
+  transition: color 0.2s, border-color 0.2s;
+}
+.editorial-dialog__close:hover {
+  border-color: var(--editorial-border);
+  color: var(--editorial-ink);
+}
+.editorial-dialog__close:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--vermillion) 35%, transparent);
+  outline-offset: 2px;
+}
+
+/* Header — pinned to the top */
+.editorial-dialog [data-dialog-header] {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin-inline: calc(-1 * var(--ed-px));
+  padding: 1.25rem calc(var(--ed-px) + 2.75rem) 1rem var(--ed-px);
+  background: color-mix(in oklab, var(--bone) 96%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--ed-hairline);
+  text-align: left;
+}
+@media (max-width: 639.98px) {
+  .editorial-dialog [data-dialog-header] {
+    padding-top: 1.75rem;
+  }
+  /* sheet grab handle */
+  .editorial-dialog [data-dialog-header]::before {
+    content: '';
+    position: absolute;
+    top: 0.625rem;
+    left: 50%;
+    width: 2.25rem;
+    height: 4px;
+    border-radius: 9999px;
+    transform: translateX(-50%);
+    background: color-mix(in oklab, var(--editorial-ink) 15%, transparent);
+  }
+}
+.editorial-dialog [data-dialog-header] h2 {
+  font-family: var(--font-fraunces);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.75rem;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--editorial-ink);
+}
+.editorial-dialog [data-dialog-header] h2::after {
+  content: '.';
+  color: var(--vermillion);
+}
+.editorial-dialog [data-dialog-header] h2 + p {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: color-mix(in oklab, var(--editorial-ink) 60%, transparent);
+}
+
+/* Footer — pinned to the bottom */
+.editorial-dialog [data-dialog-footer] {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  margin: auto calc(-1 * var(--ed-px)) calc(-1 * var(--ed-pb));
+  padding: 0.875rem var(--ed-px) calc(0.875rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  background: color-mix(in oklab, var(--bone) 95%, transparent);
+  backdrop-filter: blur(6px);
+  border-top: 1px solid var(--ed-hairline);
+}
+.editorial-dialog [data-dialog-footer] > * {
+  margin: 0;
+}
+@media (max-width: 639.98px) {
+  .editorial-dialog [data-dialog-footer] > * {
+    flex: 1 1 auto;
+  }
+}
+.editorial-dialog [data-dialog-footer] button {
+  height: 2.75rem;
+  padding-inline: 1.25rem;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: var(--font-jetbrains);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+.editorial-dialog [data-dialog-footer] button[data-variant='default'] {
+  background: var(--editorial-ink);
+  color: var(--bone);
+  border: 0;
+}
+.editorial-dialog [data-dialog-footer] button[data-variant='default']:hover {
+  background: color-mix(in oklab, var(--editorial-ink) 85%, transparent);
+}
+.editorial-dialog [data-dialog-footer] button:is([data-variant='outline'], [data-variant='secondary'], [data-variant='ghost']) {
+  background: transparent;
+  color: var(--editorial-ink);
+  border: 1px solid var(--ed-field-line);
+}
+.editorial-dialog [data-dialog-footer] button:is([data-variant='outline'], [data-variant='secondary'], [data-variant='ghost']):hover {
+  border-color: var(--editorial-border);
+  background: color-mix(in oklab, var(--editorial-ink) 4%, transparent);
+}
+
+/* Fields */
+.editorial-dialog label:not(:has(input[type='checkbox'], input[type='radio'], [role='checkbox'], [role='switch'], [role='radio'])) {
+  font-family: var(--font-jetbrains);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: color-mix(in oklab, var(--editorial-ink) 60%, transparent);
+}
+/* …but checkbox/switch/radio captions read as normal text (doubled class
+   to outrank the label rule above) */
+.editorial-dialog.editorial-dialog :is([role='checkbox'], [role='switch'], [role='radio']) ~ label {
+  font-family: inherit;
+  font-size: 0.875rem;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--editorial-ink);
+}
+.editorial-dialog :is(input:not([type='checkbox'], [type='radio'], [type='file'], [type='range'], [type='color'], [type='hidden']), button[role='combobox']) {
+  height: 2.75rem;
+  border-width: 0 0 1px;
+  border-style: solid;
+  border-color: var(--ed-field-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-right: 0;
+  font-size: 1rem;
+  color: var(--editorial-ink);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+/* Leave left padding alone on inputs that make room for an icon */
+.editorial-dialog :is(input:not([class*='pl-']), button[role='combobox']) {
+  padding-left: 0;
+}
+.editorial-dialog textarea {
+  border: 1px solid color-mix(in oklab, var(--editorial-border) 25%, transparent);
+  border-radius: 0;
+  background: color-mix(in oklab, var(--cream) 50%, transparent);
+  box-shadow: none;
+  padding: 0.75rem 0.875rem;
+  font-size: 1rem;
+  color: var(--editorial-ink);
+  transition: border-color 0.2s;
+}
+.editorial-dialog :is(input, textarea, button[role='combobox'])::placeholder,
+.editorial-dialog button[role='combobox'] > span[data-placeholder] {
+  color: color-mix(in oklab, var(--editorial-ink) 35%, transparent);
+}
+.editorial-dialog :is(input, textarea, button[role='combobox']):hover:not(:focus-visible, :disabled) {
+  border-color: color-mix(in oklab, var(--editorial-border) 60%, transparent);
+}
+.editorial-dialog :is(input, button[role='combobox']):is(:focus-visible, [data-state='open']) {
+  outline: none;
+  border-bottom-color: var(--vermillion);
+  box-shadow: 0 1px 0 0 var(--vermillion);
+}
+.editorial-dialog textarea:focus-visible {
+  outline: none;
+  border-color: var(--vermillion);
+  box-shadow: none;
+}

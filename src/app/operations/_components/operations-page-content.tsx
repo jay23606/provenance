@@ -17,12 +17,12 @@ import { Button } from '@kit/ui/button';
 import { Badge } from '@kit/ui/badge';
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@kit/ui/dialog';
+import { EditorialDialogContent } from '~/components/editorial-dialog';
 import { Input } from '@kit/ui/input';
 import { Label } from '@kit/ui/label';
 import { Textarea } from '@kit/ui/textarea';
@@ -886,7 +886,7 @@ export function OperationsPageContent({
       </div>
 
       <Dialog open={loanOpen} onOpenChange={setLoanOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl font-serif border-wine/20">
+        <EditorialDialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="font-display text-wine">
               {editingLoan ? 'Edit loan agreement' : 'New loan agreement'}
@@ -984,11 +984,11 @@ export function OperationsPageContent({
               Save
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </EditorialDialogContent>
       </Dialog>
 
       <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg font-serif border-wine/20">
+        <EditorialDialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-display text-wine">
               {editingInvoice ? 'Edit invoice' : 'New invoice'}
@@ -1131,7 +1131,7 @@ export function OperationsPageContent({
               Save
             </Button>
           </DialogFooter>
-        </DialogContent>
+        </EditorialDialogContent>
       </Dialog>
     </>
   );

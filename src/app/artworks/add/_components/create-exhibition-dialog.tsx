@@ -9,12 +9,13 @@ import { Alert, AlertDescription } from '@kit/ui/alert';
 import { toast } from '@kit/ui/sonner';
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@kit/ui/dialog';
+import { EditorialDialogContent } from '~/components/editorial-dialog';
 import { createExhibition } from '../../../exhibitions/_actions/create-exhibition';
 import { Plus } from 'lucide-react';
 import { getPerspective } from '~/components/perspective-switcher';
@@ -137,7 +138,7 @@ export function CreateExhibitionDialog({
           Create New Exhibition
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <EditorialDialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="font-display text-wine">
             Create New Exhibition
@@ -250,25 +251,20 @@ export function CreateExhibitionDialog({
             />
           </div>
 
-          <div className="flex gap-4 pt-4">
-            <Button
-              type="submit"
-              disabled={pending}
-              className="bg-wine text-parchment hover:bg-wine/90 font-serif"
-            >
-              {pending ? 'Creating...' : 'Create Exhibition'}
-            </Button>
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
-              className="font-serif border-wine/30 hover:bg-wine/10"
             >
               Cancel
             </Button>
-          </div>
+            <Button type="submit" disabled={pending}>
+              {pending ? 'Creating...' : 'Create Exhibition'}
+            </Button>
+          </DialogFooter>
         </form>
-      </DialogContent>
+      </EditorialDialogContent>
     </Dialog>
   );
 }

@@ -7,10 +7,10 @@ import { getLegalDocumentPath } from '~/lib/legal/legal.config';
 import { getLegalDocument } from '~/lib/legal/legal-documents';
 import {
   Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@kit/ui/dialog';
+import { EditorialDialogContent } from '~/components/editorial-dialog';
 import { LegalDocumentBody } from './legal-document-body';
 
 type LegalModalContextValue = {
@@ -38,7 +38,7 @@ export function LegalModalProvider({ children }: { children: ReactNode }) {
     <LegalModalContext.Provider value={{ openLegalDocument, closeLegalDocument }}>
       {children}
       <Dialog open={openId !== null} onOpenChange={(open) => !open && closeLegalDocument()}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto font-serif">
+        <EditorialDialogContent className="sm:max-w-2xl">
           {document && (
             <>
               <DialogHeader>
@@ -58,7 +58,7 @@ export function LegalModalProvider({ children }: { children: ReactNode }) {
               </p>
             </>
           )}
-        </DialogContent>
+        </EditorialDialogContent>
       </Dialog>
     </LegalModalContext.Provider>
   );

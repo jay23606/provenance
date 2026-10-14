@@ -10,12 +10,13 @@ import { Alert, AlertDescription } from '@kit/ui/alert';
 import { toast } from '@kit/ui/sonner';
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@kit/ui/dialog';
+import { EditorialDialogContent } from '~/components/editorial-dialog';
 import { Building2, GalleryHorizontal, Palette, User, Plus } from 'lucide-react';
 import { USER_ROLES, getRoleLabel, type UserRole } from '~/lib/user-roles';
 import { createExhibition } from '~/app/exhibitions/_actions/create-exhibition';
@@ -137,7 +138,7 @@ export function NewExhibitionDialog({
           New Exhibition
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <EditorialDialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="font-display text-wine">
             New Exhibition
@@ -281,25 +282,20 @@ export function NewExhibitionDialog({
             />
           </div>
 
-          <div className="flex gap-4 pt-4">
-            <Button
-              type="submit"
-              disabled={pending || effectiveDisabled}
-              className="bg-ink text-parchment hover:bg-ink/90 font-serif"
-            >
-              {pending ? 'Creating…' : 'Create exhibition'}
-            </Button>
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
-              className="font-serif border-wine/30 hover:bg-wine/10"
             >
               Cancel
             </Button>
-          </div>
+            <Button type="submit" disabled={pending || effectiveDisabled}>
+              {pending ? 'Creating…' : 'Create exhibition'}
+            </Button>
+          </DialogFooter>
         </form>
-      </DialogContent>
+      </EditorialDialogContent>
     </Dialog>
   );
 }
