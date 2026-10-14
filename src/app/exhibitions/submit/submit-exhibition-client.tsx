@@ -26,6 +26,8 @@ type InviteContext = {
   issuesCertificateOfShow: boolean;
   inviteeEmail: string;
   inviteeName: string | null;
+  /** Most artworks this invite may submit; null = no limit. */
+  maxArtworks: number | null;
 };
 
 type SubmitExhibitionClientProps = {
@@ -536,8 +538,13 @@ export function SubmitExhibitionClient({
     );
   };
 
+  const maxArtworks = inviteContext?.maxArtworks ?? null;
+  const atLimit = maxArtworks !== null && entries.length >= maxArtworks;
+
   const addEntry = () => {
-    setEntries((prev) => [...prev, emptyEntry()]);
+    setEntries((prev) =>
+      maxArtworks !== null && prev.length >= maxArtworks ? prev : [...prev, emptyEntry()],
+    );
   };
 
   const removeEntry = (id: string) => {
@@ -834,6 +841,15 @@ export function SubmitExhibitionClient({
             ? ' The gallery will automatically receive linked Certificates of Show.'
             : ' They will be added to the exhibition automatically.'}
         </p>
+        {inviteContext.maxArtworks && (
+          <p className="text-ink/70 text-sm mt-3">
+            You can submit up to{' '}
+            <span className="font-semibold text-wine">
+              {inviteContext.maxArtworks} {inviteContext.maxArtworks === 1 ? 'artwork' : 'artworks'}
+            </span>{' '}
+            for consideration.
+          </p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 font-serif">
@@ -862,9 +878,13 @@ export function SubmitExhibitionClient({
           variant="outline"
           className="w-full border-wine/20 text-wine hover:bg-wine/5"
           onClick={addEntry}
-          disabled={pending || preparingImages}
+          disabled={pending || preparingImages || atLimit}
         >
-          Add another artwork
+          {atLimit
+            ? `Limit reached (${maxArtworks} ${maxArtworks === 1 ? 'artwork' : 'artworks'})`
+            : maxArtworks !== null
+              ? `Add another artwork (${entries.length} of ${maxArtworks})`
+              : 'Add another artwork'}
         </Button>
 
         <Button

@@ -6,7 +6,10 @@ import { canManageExhibition } from '~/app/profiles/_actions/gallery-members';
 import { ExhibitionForm } from '../../_components/exhibition-form';
 import { ExhibitionDetails } from '../../_components/exhibition-details';
 import { ExhibitionInvitesPanel } from '../../_components/exhibition-invites-panel';
-import { getExhibitionInvites } from '../../_actions/manage-exhibition-invites';
+import {
+  getExhibitionInvites,
+  getUninvitedCreditedArtists,
+} from '../../_actions/manage-exhibition-invites';
 
 import { asUntyped } from '~/lib/supabase-untyped';
 export const metadata = {
@@ -55,7 +58,10 @@ export default async function EditExhibitionPage({
     redirect('/exhibitions');
   }
 
-  const invites = await getExhibitionInvites(id);
+  const [invites, uninvitedArtists] = await Promise.all([
+    getExhibitionInvites(id),
+    getUninvitedCreditedArtists(id),
+  ]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -70,7 +76,11 @@ export default async function EditExhibitionPage({
 
       <ExhibitionForm exhibition={exhibition} />
 
-      <ExhibitionInvitesPanel initialInvites={invites} />
+      <ExhibitionInvitesPanel
+        exhibitionId={id}
+        initialInvites={invites}
+        uninvitedArtists={uninvitedArtists}
+      />
 
       <section id="artworks" className="mt-16 pt-12 border-t border-wine/15 scroll-mt-8">
         <div className="mb-8">

@@ -38,6 +38,7 @@ type InviteRow = {
   invitee_name: string | null;
   artist_account_id: string | null;
   status: string;
+  max_artworks: number | null;
   expires_at: string;
 };
 
@@ -217,7 +218,7 @@ async function validateInvite(
   const { data: invite, error } = await asUntyped(adminClient)
     .from('exhibition_artist_invites')
     .select(
-      'id, exhibition_id, invitee_email, invitee_name, artist_account_id, status, expires_at',
+      'id, exhibition_id, invitee_email, invitee_name, artist_account_id, status, max_artworks, expires_at',
     )
     .eq('token_hash', tokenHash)
     .maybeSingle();
@@ -329,6 +330,25 @@ export async function submitExhibitionArtwork(
     }
 
     const artworks = parsed;
+
+    if (invite.max_artworks) {
+      const newInBatch = artworks.filter((a) => !a.existingCoaId).length;
+      const { count: alreadySubmitted, error: countError } = await asUntyped(adminClient)
+        .from('artworks')
+        .select('id', { count: 'exact', head: true })
+        .eq('metadata->>exhibition_invite_id', invite.id);
+      if (countError) {
+        console.error('[Exhibitions] submitExhibitionArtwork limit count failed', countError);
+        return { success: false, error: 'Could not check your submission limit; try again' };
+      }
+      const planned = Math.max(batch.totalArtworkCount, (alreadySubmitted ?? 0) + newInBatch);
+      if (planned > invite.max_artworks) {
+        return {
+          success: false,
+          error: `This invitation allows up to ${invite.max_artworks} ${invite.max_artworks === 1 ? 'artwork' : 'artworks'}`,
+        };
+      }
+    }
     console.log('[Exhibitions] submitExhibitionArtwork processing batch artworks', {
       batchIndex: batch.batchIndex + 1,
       totalBatches: batch.totalBatches,
@@ -480,6 +500,7 @@ export async function submitExhibitionArtwork(
         metadata: {
           exhibition_id: invite.exhibition_id,
           exhibition_title: exhibition.title,
+          exhibition_invite_id: invite.id,
           submitted_via_exhibition_invite: true,
         },
       };

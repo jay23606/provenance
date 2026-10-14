@@ -8,8 +8,10 @@ import { captureExhibitionContacts } from '~/lib/crm/capture-exhibition-contacts
 import { containsObjectionableText, OBJECTIONABLE_TEXT_MESSAGE } from '~/lib/moderation/text-filter';
 import {
   createExhibitionArtistInvites,
+  inviteCreditedArtists,
   type ExhibitionArtistInviteInput,
 } from './manage-exhibition-invites';
+import { exhibitionHasEnded, parseMaxArtworksPerArtist } from '../_helpers/exhibition-invite-limits';
 
 export async function updateExhibition(exhibitionId: string, formData: FormData) {
   const client = asUntyped(getSupabaseServerClient());
@@ -67,6 +69,7 @@ export async function updateExhibition(exhibitionId: string, formData: FormData)
   const theme = formData.get('theme') as string | null;
   const artistIdsJson = formData.get('artistIds') as string | null;
   const artistInvitesJson = formData.get('artistInvites') as string | null;
+  const maxArtworksPerArtist = parseMaxArtworksPerArtist(formData.get('maxArtworksPerArtist'));
 
   if (!title || !startDate) {
     throw new Error('Title and start date are required');
@@ -96,6 +99,11 @@ export async function updateExhibition(exhibitionId: string, formData: FormData)
   } else {
     delete metadata.theme;
   }
+  if (maxArtworksPerArtist) {
+    metadata.max_artworks_per_artist = maxArtworksPerArtist;
+  } else {
+    delete metadata.max_artworks_per_artist;
+  }
 
   // Update exhibition
   const { error } = await asUntyped(client)
@@ -118,9 +126,19 @@ export async function updateExhibition(exhibitionId: string, formData: FormData)
   }
 
   // Update artists if provided
+  let newlyCreditedArtistIds: string[] = [];
   if (artistIdsJson !== null) {
     try {
       const artistIds = JSON.parse(artistIdsJson) as string[];
+
+      const { data: previousArtists } = await asUntyped(client)
+        .from('exhibition_artists')
+        .select('artist_account_id')
+        .eq('exhibition_id', exhibitionId);
+      const previousIds = new Set(
+        (previousArtists ?? []).map((r: { artist_account_id: string }) => r.artist_account_id),
+      );
+      newlyCreditedArtistIds = artistIds.filter((id) => !previousIds.has(id));
 
       // Remove all existing artists
       await asUntyped(client)
@@ -184,6 +202,16 @@ export async function updateExhibition(exhibitionId: string, formData: FormData)
       }
     } catch (e) {
       console.error('[Exhibitions] updateExhibition artist invites failed', e);
+    }
+  }
+
+  // Newly credited platform artists get the upload invite too; artists
+  // credited before this fix can be invited from the edit page panel.
+  if (newlyCreditedArtistIds.length > 0 && !exhibitionHasEnded(endDate)) {
+    try {
+      await inviteCreditedArtists(exhibitionId, newlyCreditedArtistIds);
+    } catch (e) {
+      console.error('[Exhibitions] updateExhibition credited artist invites failed', e);
     }
   }
 
