@@ -16,7 +16,12 @@ import {
   MAX_UPLOAD_IMAGE_BYTES,
   prepareImageForUpload,
 } from '~/lib/client-image-upload';
-import { submitExhibitionArtwork } from '../_actions/submit-exhibition-artwork';
+import {
+  getExistingArtworksForSubmission,
+  submitExhibitionArtwork,
+  submitExistingArtworksToExhibition,
+  type ExistingArtworkOption,
+} from '../_actions/submit-exhibition-artwork';
 
 const MAX_BATCH_BYTES = 4 * 1024 * 1024;
 
@@ -144,12 +149,13 @@ function buildChunkFormData(
   coaIdsByEntryId: Record<string, string>,
   sessionFirstCoaId: string,
   sessionFirstCosId: string,
+  totalArtworkCount: number,
 ): { formData: FormData; chunkEntryOrder: string[] } {
   const formData = new FormData();
   formData.append('batchIndex', String(batchIndex));
   formData.append('totalBatches', String(totalBatches));
   formData.append('finalize', finalize ? 'true' : 'false');
-  formData.append('totalArtworkCount', String(entries.length));
+  formData.append('totalArtworkCount', String(totalArtworkCount));
 
   if (sessionFirstCoaId) {
     formData.append('sessionFirstCoaId', sessionFirstCoaId);
@@ -190,6 +196,11 @@ function buildChunkFormData(
 
   formData.append('count', String(localIndex));
   return { formData, chunkEntryOrder };
+}
+
+/** An untouched "new artwork" card, ignored when existing works are chosen. */
+function isBlankEntry(entry: ArtworkEntry): boolean {
+  return !entry.title.trim() && entry.images.length === 0 && !entry.description.trim();
 }
 
 function isSizeLimitError(message: string): boolean {
@@ -486,6 +497,23 @@ export function SubmitExhibitionClient({
   } | null>(null);
   const [entries, setEntries] = useState<ArtworkEntry[]>([emptyEntry()]);
   const [submittedCount, setSubmittedCount] = useState(1);
+  const [existingOptions, setExistingOptions] = useState<ExistingArtworkOption[]>([]);
+  const [selectedExistingIds, setSelectedExistingIds] = useState<string[]>([]);
+  // Set once the chosen existing works are linked, so a retry only re-sends uploads.
+  const [existingSubmitted, setExistingSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (authState !== 'ready' || !token) return;
+    let cancelled = false;
+    void getExistingArtworksForSubmission(token).then((result) => {
+      if (cancelled) return;
+      if ('artworks' in result) setExistingOptions(result.artworks);
+      else console.error('[Exhibitions] load existing artworks failed', result.error);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authState, token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -539,18 +567,36 @@ export function SubmitExhibitionClient({
   };
 
   const maxArtworks = inviteContext?.maxArtworks ?? null;
-  const atLimit = maxArtworks !== null && entries.length >= maxArtworks;
+  const newEntries =
+    selectedExistingIds.length > 0 ? entries.filter((e) => !isBlankEntry(e)) : entries;
+  const totalSelected = selectedExistingIds.length + newEntries.length;
+  const slotsUsed = selectedExistingIds.length + entries.length;
+  const atLimit = maxArtworks !== null && slotsUsed >= maxArtworks;
+  const existingAtLimit =
+    maxArtworks !== null && selectedExistingIds.length + newEntries.length >= maxArtworks;
 
   const addEntry = () => {
-    setEntries((prev) =>
-      maxArtworks !== null && prev.length >= maxArtworks ? prev : [...prev, emptyEntry()],
-    );
+    if (atLimit) return;
+    setEntries((prev) => [...prev, emptyEntry()]);
   };
 
   const removeEntry = (id: string) => {
     setEntries((prev) =>
-      prev.length <= 1 ? prev : prev.filter((entry) => entry.id !== id),
+      prev.length <= 1 && selectedExistingIds.length === 0
+        ? prev
+        : prev.filter((entry) => entry.id !== id),
     );
+  };
+
+  const toggleExisting = (id: string) => {
+    setSelectedExistingIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (existingAtLimit) {
+        toast.error(`You can submit up to ${maxArtworks} artworks`);
+        return prev;
+      }
+      return [...prev, id];
+    });
   };
 
   const addImages = async (id: string, rawFiles: File[]) => {
@@ -604,6 +650,19 @@ export function SubmitExhibitionClient({
     e.preventDefault();
     setSubmitError(null);
 
+    const entries = newEntries;
+    const pendingExisting = existingSubmitted ? [] : selectedExistingIds;
+    const totalCount = selectedExistingIds.length + entries.length;
+
+    if (totalCount === 0) {
+      toast.error('Add an artwork or choose one from your account');
+      return;
+    }
+    if (maxArtworks !== null && totalCount > maxArtworks) {
+      toast.error(`You can submit up to ${maxArtworks} artworks`);
+      return;
+    }
+
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
       if (!entry.title.trim()) {
@@ -616,7 +675,52 @@ export function SubmitExhibitionClient({
       }
     }
 
+    const finishSubmission = (count: number, firstArtworkId: string) => {
+      setSubmittedCount(count);
+      setUploadProgress(null);
+      setAuthState('done');
+      toast.success(
+        count === 1 ? 'Artwork submitted successfully' : `${count} artworks submitted successfully`,
+      );
+      setTimeout(() => {
+        if (count === 1 && firstArtworkId) {
+          router.replace(`/artworks/${firstArtworkId}/certificate`);
+        } else {
+          router.replace('/artworks/my');
+        }
+      }, 1500);
+    };
+
     startTransition(async () => {
+      let sessionFirstCoaId = '';
+      let sessionFirstCosId = '';
+
+      if (pendingExisting.length > 0) {
+        try {
+          const existingResult = await submitExistingArtworksToExhibition(token, pendingExisting, {
+            finalize: entries.length === 0,
+            totalArtworkCount: totalCount,
+          });
+          if (!existingResult.success) {
+            setSubmitError(existingResult.error);
+            toast.error(existingResult.error);
+            return;
+          }
+          setExistingSubmitted(true);
+          sessionFirstCoaId = existingResult.firstCoaId;
+          sessionFirstCosId = existingResult.firstCosId;
+          if (entries.length === 0) {
+            finishSubmission(totalCount, existingResult.firstCoaId);
+            return;
+          }
+        } catch (err) {
+          console.error('[Exhibitions] submitExistingArtworks client error', err);
+          setSubmitError('Something went wrong. Please try again.');
+          toast.error('Something went wrong. Please try again.');
+          return;
+        }
+      }
+
       const flatImages: FlatImageItem[] = [];
       for (const entry of entries) {
         for (const file of entry.images) {
@@ -641,8 +745,6 @@ export function SubmitExhibitionClient({
       }
 
       const coaIdsByEntryId: Record<string, string> = {};
-      let sessionFirstCoaId = '';
-      let sessionFirstCosId = '';
       let artworksUploaded = 0;
 
       setUploadProgress({ batch: 0, totalBatches: imageChunks.length });
@@ -661,6 +763,7 @@ export function SubmitExhibitionClient({
             coaIdsByEntryId,
             sessionFirstCoaId,
             sessionFirstCosId,
+            totalCount,
           );
 
           const result = await submitExhibitionArtwork(token, formData);
@@ -693,21 +796,7 @@ export function SubmitExhibitionClient({
           artworksUploaded = Object.keys(coaIdsByEntryId).length;
 
           if (result.finalized) {
-            setSubmittedCount(result.count);
-            setUploadProgress(null);
-            setAuthState('done');
-            toast.success(
-              result.count === 1
-                ? 'Artwork submitted successfully'
-                : `${result.count} artworks submitted successfully`,
-            );
-            setTimeout(() => {
-              if (result.count === 1) {
-                router.replace(`/artworks/${result.artworkId}/certificate`);
-              } else {
-                router.replace('/artworks/my');
-              }
-            }, 1500);
+            finishSubmission(result.count, result.artworkId);
             return;
           }
         }
@@ -734,13 +823,11 @@ export function SubmitExhibitionClient({
 
   const submitLabel = uploadProgress
     ? `Uploading batch ${uploadProgress.batch} of ${uploadProgress.totalBatches}…`
-    : entries.length === 1
-      ? pending
-        ? 'Submitting…'
-        : 'Submit artwork & create COA'
-      : pending
-        ? 'Submitting…'
-        : `Submit ${entries.length} artworks & create COAs`;
+    : pending
+      ? 'Submitting…'
+      : totalSelected === 1
+        ? 'Submit artwork'
+        : `Submit ${totalSelected} artworks`;
 
   if (!token) {
     return (
@@ -859,12 +946,69 @@ export function SubmitExhibitionClient({
           </p>
         )}
 
+        {existingOptions.length > 0 && (
+          <section className="rounded-lg border border-wine/15 bg-parchment/40 p-4">
+            <div className="flex items-baseline justify-between gap-3 mb-1">
+              <h2 className="text-base font-semibold text-ink">From your Provenance account</h2>
+              {selectedExistingIds.length > 0 && (
+                <span className="text-xs text-wine">{selectedExistingIds.length} selected</span>
+              )}
+            </div>
+            <p className="text-xs text-ink/55 mb-3">
+              Choose works already on your account — no need to upload them again.
+            </p>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-80 overflow-y-auto pr-1">
+              {existingOptions.map((artwork) => {
+                const selected = selectedExistingIds.includes(artwork.id);
+                return (
+                  <button
+                    key={artwork.id}
+                    type="button"
+                    onClick={() => toggleExisting(artwork.id)}
+                    disabled={pending || existingSubmitted}
+                    aria-pressed={selected}
+                    className={`group relative text-left rounded-md overflow-hidden border-2 transition-colors ${
+                      selected ? 'border-wine' : 'border-transparent hover:border-wine/30'
+                    }`}
+                  >
+                    <div className="aspect-square bg-ink/5">
+                      {artwork.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={artwork.imageUrl}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      )}
+                    </div>
+                    <p className="px-1.5 py-1 text-[11px] leading-tight text-ink truncate">
+                      {artwork.title}
+                    </p>
+                    {selected && (
+                      <span className="absolute top-1 right-1 rounded-full bg-wine text-parchment text-[10px] px-1.5 py-0.5">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {existingOptions.length > 0 && (
+          <p className="text-[11px] uppercase tracking-widest text-wine/50 text-center">
+            {selectedExistingIds.length > 0 ? 'And / or upload new work' : 'Or upload new work'}
+          </p>
+        )}
+
         {entries.map((entry, index) => (
           <ArtworkEntryCard
             key={entry.id}
             entry={entry}
             index={index}
-            canRemove={entries.length > 1}
+            canRemove={entries.length > 1 || selectedExistingIds.length > 0}
             onUpdate={updateEntry}
             onRemove={removeEntry}
             onAddImages={addImages}
@@ -883,13 +1027,13 @@ export function SubmitExhibitionClient({
           {atLimit
             ? `Limit reached (${maxArtworks} ${maxArtworks === 1 ? 'artwork' : 'artworks'})`
             : maxArtworks !== null
-              ? `Add another artwork (${entries.length} of ${maxArtworks})`
+              ? `Add another artwork (${slotsUsed} of ${maxArtworks})`
               : 'Add another artwork'}
         </Button>
 
         <Button
           type="submit"
-          disabled={pending || preparingImages}
+          disabled={pending || preparingImages || totalSelected === 0}
           className="w-full bg-wine text-parchment hover:bg-wine/90"
         >
           {submitLabel}

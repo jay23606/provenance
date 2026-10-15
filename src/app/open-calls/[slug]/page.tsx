@@ -3,6 +3,8 @@ import { getOpenCallBySlug } from '../_actions/get-open-call';
 import { isOpenCallSubmissionExpired } from '../_lib/open-call-utils';
 import { getMediumLabel } from '../_actions/open-call-constants';
 import { OpenCallSubmissionForm } from './_components/open-call-submission-form';
+import { ExhibitionOpenCallSubmit } from './_components/exhibition-open-call-submit';
+import { parseMaxArtworksPerArtist } from '~/app/exhibitions/_helpers/exhibition-invite-limits';
 import appConfig from '~/config/app.config';
 import { safeJsonLd } from '~/lib/safe-json-ld';
 
@@ -142,6 +144,13 @@ export default async function OpenCallPage({
             View open call
           </a>
         </div>
+      ) : openCall.submission_mode === 'exhibition' ? (
+        <ExhibitionOpenCallSubmit
+          openCallId={openCall.id}
+          slug={openCall.slug}
+          isExpired={isExpired}
+          maxArtworks={parseMaxArtworksPerArtist(openCall.exhibition.metadata?.max_artworks_per_artist)}
+        />
       ) : (
         <OpenCallSubmissionForm openCallId={openCall.id} isExpired={isExpired} />
       )}

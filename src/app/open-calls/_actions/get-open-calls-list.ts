@@ -2,6 +2,7 @@
 
 import { asUntyped } from '~/lib/supabase-untyped';
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
+import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 import { getMediumLabel } from './open-call-constants';
 
 export type OpenCallListEntry = {
@@ -58,7 +59,9 @@ export async function getOpenCallsList(
     today: todayIso,
   });
 
-  let query = asUntyped(client)
+  // Admin client so calls on still-private draft exhibitions list with their
+  // title/dates; open calls themselves are public.
+  let query = asUntyped(getSupabaseServerAdminClient())
     .from('open_calls')
     .select(
       'id, slug, gallery_profile_id, submission_open_date, submission_closing_date, call_type, medium, eligible_locations, exhibition:exhibition_id (id, title, start_date, end_date, location, description)',
@@ -84,7 +87,7 @@ export async function getOpenCallsList(
     return [];
   }
 
-  let list = (data || []) as unknown as OpenCallListEntry[];
+  let list = ((data || []) as unknown as OpenCallListEntry[]).filter((oc) => oc.exhibition);
 
   if (filters?.locationFilter === 'none') {
     list = list.filter((oc) => {

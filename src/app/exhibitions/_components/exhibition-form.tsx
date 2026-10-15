@@ -291,22 +291,31 @@ export function ExhibitionForm({
 
         <div className="space-y-2">
           <Label htmlFor="maxArtworksPerArtist">Artworks each artist can upload</Label>
-          <Input
+          <select
             id="maxArtworksPerArtist"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={100}
             value={formData.maxArtworksPerArtist}
             onChange={(e) =>
               setFormData({ ...formData, maxArtworksPerArtist: e.target.value })
             }
-            placeholder="No limit"
-            className="font-serif w-32"
-          />
+            className="flex h-10 w-48 rounded-md border border-input bg-transparent px-3 py-2 text-sm font-serif"
+          >
+            <option value="">No limit</option>
+            {[
+              ...new Set([
+                ...Array.from({ length: 20 }, (_, i) => i + 1),
+                ...(formData.maxArtworksPerArtist ? [Number(formData.maxArtworksPerArtist)] : []),
+              ]),
+            ]
+              .sort((a, b) => a - b)
+              .map((n) => (
+                <option key={n} value={String(n)}>
+                  Up to {n} {n === 1 ? 'artwork' : 'artworks'}
+                </option>
+              ))}
+          </select>
           <p className="text-xs text-ink/60 font-serif">
-            Applies to new invites. Invited artists can submit up to this many works
-            for you to select from; you can change it per artist below once invites are sent.
+            Applies to new invites and your open call. Artists submit up to this many works
+            for you to select from; you can change it per artist once invites are sent.
           </p>
         </div>
 
