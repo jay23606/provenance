@@ -26,11 +26,23 @@ export function SignInMethodsContainer(props: {
   };
 }) {
   const router = useRouter();
-  const nextPath = useSearchParams().get('next') ?? props.paths.home;
+  const requestedNext = useSearchParams().get('next');
+  // Same-origin, single-leading-slash paths only (CWE-601).
+  const safeNext =
+    requestedNext &&
+    requestedNext.startsWith('/') &&
+    !requestedNext.startsWith('//') &&
+    !requestedNext.startsWith('/\\')
+      ? requestedNext
+      : null;
+  const nextPath = safeNext ?? props.paths.home;
 
-  const redirectUrl = isBrowser()
-    ? new URL(props.paths.callback, window?.location.origin).toString()
-    : '';
+  const redirectUrl = (() => {
+    if (!isBrowser()) return '';
+    const url = new URL(props.paths.callback, window?.location.origin);
+    if (safeNext) url.searchParams.set('next', safeNext);
+    return url.toString();
+  })();
 
   const onSignIn = () => {
     router.replace(nextPath);
@@ -71,7 +83,7 @@ export function SignInMethodsContainer(props: {
           shouldCreateUser={false}
           paths={{
             callback: props.paths.callback,
-            returnPath: props.paths.home,
+            returnPath: nextPath,
           }}
         />
       </If>

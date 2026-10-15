@@ -109,6 +109,8 @@ export function NotificationsList({
       case 'gallery_team_invite':
         return <Users className="h-5 w-5" />;
       case 'exhibition_invite':
+      case 'exhibition_artwork_submitted':
+      case 'exhibition_artwork_selected':
         return <GalleryVerticalEnd className="h-5 w-5" />;
       case 'message':
         return <MessageSquare className="h-5 w-5" />;
@@ -125,6 +127,7 @@ export function NotificationsList({
       case 'certificate_received':
       case 'artist_profile_claim_approved':
       case 'artist_claim_approved':
+      case 'exhibition_artwork_selected':
         return 'text-notify-success';
       case 'certificate_claimed':
         return 'text-notify-info';
@@ -387,6 +390,32 @@ export function NotificationsList({
                           className="font-serif bg-wine text-parchment hover:bg-wine/90"
                         >
                           Submit your work
+                        </Button>
+                      </Link>
+                    )}
+
+                    {(notification.type === 'exhibition_artwork_submitted' ||
+                      notification.type === 'exhibition_artwork_selected') &&
+                      typeof notification.metadata?.exhibition_id === 'string' && (
+                      <Link
+                        href={
+                          notification.type === 'exhibition_artwork_submitted'
+                            ? `/exhibitions/${notification.metadata.exhibition_id}/edit#submissions`
+                            : typeof notification.metadata.open_call_slug === 'string'
+                              ? `/open-calls/${notification.metadata.open_call_slug}`
+                              : `/exhibitions/${notification.metadata.exhibition_id}`
+                        }
+                      >
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="font-serif border-wine/30 hover:bg-wine/10"
+                        >
+                          {notification.type === 'exhibition_artwork_submitted'
+                            ? 'Review submissions'
+                            : typeof notification.metadata.open_call_slug === 'string'
+                              ? 'View your submission'
+                              : 'View exhibition'}
                         </Button>
                       </Link>
                     )}

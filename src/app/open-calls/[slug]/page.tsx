@@ -4,6 +4,7 @@ import { isOpenCallSubmissionExpired } from '../_lib/open-call-utils';
 import { getMediumLabel } from '../_actions/open-call-constants';
 import { OpenCallSubmissionForm } from './_components/open-call-submission-form';
 import { ExhibitionOpenCallSubmit } from './_components/exhibition-open-call-submit';
+import { getMyOpenCallStatus } from '~/app/exhibitions/_actions/exhibition-open-call';
 import { parseMaxArtworksPerArtist } from '~/app/exhibitions/_helpers/exhibition-invite-limits';
 import appConfig from '~/config/app.config';
 import { safeJsonLd } from '~/lib/safe-json-ld';
@@ -52,15 +53,23 @@ function formatDate(dateString: string) {
 
 export default async function OpenCallPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ submitted?: string }>;
 }) {
   const { slug } = await params;
+  const { submitted } = await searchParams;
   const openCall = await getOpenCallBySlug(slug);
 
   if (!openCall) {
     notFound();
   }
+
+  const myStatus =
+    openCall.submission_mode === 'exhibition' && !openCall.external_url
+      ? await getMyOpenCallStatus(openCall.exhibition.id)
+      : null;
 
   const isExpired = isOpenCallSubmissionExpired(openCall);
   const subOpen = openCall.submission_open_date
@@ -144,10 +153,13 @@ export default async function OpenCallPage({
             View open call
           </a>
         </div>
-      ) : openCall.submission_mode === 'exhibition' ? (
+      ) : myStatus ? (
         <ExhibitionOpenCallSubmit
           openCallId={openCall.id}
           slug={openCall.slug}
+          exhibitionId={openCall.exhibition.id}
+          status={myStatus}
+          justSubmitted={submitted === '1'}
           isExpired={isExpired}
           maxArtworks={parseMaxArtworksPerArtist(openCall.exhibition.metadata?.max_artworks_per_artist)}
         />

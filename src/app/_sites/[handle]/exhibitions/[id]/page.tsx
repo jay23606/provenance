@@ -137,6 +137,7 @@ async function fetchExhibition(exhibitionId: string) {
       )
     `)
     .eq('exhibition_id', exhibitionId)
+    .eq('status', 'selected')
     .limit(24);
 
   const linkedArtworks = (artworkLinks ?? [])

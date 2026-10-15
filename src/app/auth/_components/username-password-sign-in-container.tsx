@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useSignInWithUsernamePassword } from '../_hooks/use-sign-in-with-username-password';
+import { useAuthNextPath } from '../_hooks/use-auth-next-path';
 import { AuthErrorAlert } from '../../../../makerkit/nextjs-saas-starter-kit-lite/packages/features/auth/src/components/auth-error-alert';
 import { UsernamePasswordSignInForm } from './username-password-sign-in-form';
 
@@ -14,6 +15,7 @@ interface UsernamePasswordSignInContainerProps {
 export function UsernamePasswordSignInContainer({ homePath }: UsernamePasswordSignInContainerProps) {
   const router = useRouter();
   const signInMutation = useSignInWithUsernamePassword();
+  const nextPath = useAuthNextPath() ?? homePath;
   const [redirecting, setRedirecting] = useState(false);
 
   const loading = signInMutation.isPending || redirecting;
@@ -29,12 +31,12 @@ export function UsernamePasswordSignInContainer({ homePath }: UsernamePasswordSi
 
         setRedirecting(true);
         router.refresh();
-        router.push(homePath);
+        router.push(nextPath);
       } catch (error) {
         console.error('[UsernamePasswordSignIn] Sign in failed', error);
       }
     },
-    [homePath, loading, router, signInMutation],
+    [nextPath, loading, router, signInMutation],
   );
 
   return (

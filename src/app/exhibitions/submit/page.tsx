@@ -25,6 +25,7 @@ export default async function ExhibitionSubmitPage({ searchParams }: PageProps) 
         inviteeEmail: result.inviteeEmail,
         inviteeName: result.inviteeName,
         maxArtworks: result.maxArtworks,
+        statusPath: result.statusPath,
       };
     } else {
       contextError = result.error;

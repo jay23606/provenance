@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { SignInMethodsContainer } from '@kit/auth/sign-in';
 import { Button } from '@kit/ui/button';
 import { Heading } from '@kit/ui/heading';
@@ -12,6 +10,7 @@ import { withI18n } from '~/lib/i18n/with-i18n';
 import { UsernamePasswordSignInContainer } from '../_components/username-password-sign-in-container';
 import { CollapsibleSignUpSection } from '../_components/collapsible-sign-up-section';
 import { PasskeySignIn } from '../_components/passkey-sign-in';
+import { AuthSwitchLink } from '../_components/auth-switch-link';
 
 export const generateMetadata = async () => {
   const i18n = await createI18nServerInstance();
@@ -64,9 +63,9 @@ function SignInPage() {
         <span className="text-sm" style={{ color: '#111111', opacity: 0.5 }}>
           New to Provenance?{' '}
           <Button asChild variant={'link'} size={'sm'} className="h-auto p-0 text-sm font-medium" style={{ color: '#4A2F25' }}>
-            <Link href={pathsConfig.auth.signUp}>
+            <AuthSwitchLink href={pathsConfig.auth.signUp}>
               Create an account
-            </Link>
+            </AuthSwitchLink>
           </Button>
         </span>
       </div>

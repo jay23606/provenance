@@ -496,6 +496,8 @@ export async function getExhibitionInviteContext(token: string): Promise<
       inviteeName: string | null;
       status: string;
       maxArtworks: number | null;
+      /** Open call page where the artist can follow their submission's review. */
+      statusPath: string | null;
     }
   | { valid: false; error: string }
 > {
@@ -542,6 +544,15 @@ export async function getExhibitionInviteContext(token: string): Promise<
     .eq('id', invite.exhibition_id)
     .single();
 
+  const { data: openCall } = await asUntyped(adminClient)
+    .from('open_calls')
+    .select('slug')
+    .eq('exhibition_id', invite.exhibition_id)
+    .eq('submission_mode', 'exhibition')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   let galleryName: string | null = null;
   if (exhibition?.gallery_id) {
     const { data: galleryAccount } = await asUntyped(adminClient)
@@ -561,6 +572,7 @@ export async function getExhibitionInviteContext(token: string): Promise<
     inviteeName: invite.invitee_name,
     status: invite.status,
     maxArtworks: invite.max_artworks ?? null,
+    statusPath: openCall?.slug ? `/open-calls/${openCall.slug}` : null,
   };
 }
 

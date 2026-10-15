@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { SignUpMethodsContainer } from '@kit/auth/sign-up';
 import { Button } from '@kit/ui/button';
 import { Trans } from '@kit/ui/trans';
@@ -12,6 +10,7 @@ import { withI18n } from '~/lib/i18n/with-i18n';
 import { CustomEmailPasswordSignUpContainer } from '../_components/custom-password-sign-up-container';
 import { UsernamePasswordSignUpContainer } from '../_components/username-password-sign-up-container';
 import { CollapsibleSignUpSection } from '../_components/collapsible-sign-up-section';
+import { AuthSwitchLink } from '../_components/auth-switch-link';
 
 export const generateMetadata = async () => {
   const i18n = await createI18nServerInstance();
@@ -85,9 +84,9 @@ function SignUpPage() {
             className="h-auto p-0 text-sm font-medium"
             style={{ color: '#4A2F25' }}
           >
-            <Link href={pathsConfig.auth.signIn}>
+            <AuthSwitchLink href={pathsConfig.auth.signIn}>
               <Trans i18nKey={'auth:alreadyHaveAnAccount'} defaults="Sign in" />
-            </Link>
+            </AuthSwitchLink>
           </Button>
         </span>
       </div>

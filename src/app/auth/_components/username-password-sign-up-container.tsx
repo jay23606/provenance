@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useSignUpWithUsernamePassword } from '../_hooks/use-sign-up-with-username-password';
+import { useAuthNextPath } from '../_hooks/use-auth-next-path';
 import { AuthErrorAlert } from '../../../../makerkit/nextjs-saas-starter-kit-lite/packages/features/auth/src/components/auth-error-alert';
 import { UsernamePasswordSignUpForm } from './username-password-sign-up-form';
 
@@ -20,6 +21,7 @@ export function UsernamePasswordSignUpContainer({
 }: UsernamePasswordSignUpContainerProps) {
   const router = useRouter();
   const signUpMutation = useSignUpWithUsernamePassword();
+  const nextPath = useAuthNextPath() ?? appHomePath;
   const [redirecting, setRedirecting] = useState(false);
 
   const loading = signUpMutation.isPending || redirecting;
@@ -44,12 +46,12 @@ export function UsernamePasswordSignUpContainer({
         // go straight to the app — there's no email to confirm.
         setRedirecting(true);
         router.refresh();
-        router.push(appHomePath);
+        router.push(nextPath);
       } catch (error) {
         console.error('[UsernamePasswordSignUp] Sign up failed', error);
       }
     },
-    [appHomePath, loading, onSignUp, router, signUpMutation],
+    [nextPath, loading, onSignUp, router, signUpMutation],
   );
 
   return (

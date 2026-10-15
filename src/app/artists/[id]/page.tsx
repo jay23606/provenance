@@ -270,6 +270,7 @@ export default async function ArtistProfilePage({
           )
         `,
         )
+        .eq('status', 'selected')
         .in('artwork_id', artworkIds);
 
       const seen = new Set<string>();

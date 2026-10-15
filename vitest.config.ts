@@ -17,6 +17,7 @@ export default defineConfig({
       'src/lib/moderation/**/*.test.ts',
       'src/lib/feed/**/*.test.ts',
       'src/app/exhibitions/_helpers/**/*.test.ts',
+      'src/lib/auth/safe-next-path.test.ts',
     ],
   },
   resolve: {

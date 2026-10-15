@@ -33,6 +33,8 @@ type InviteContext = {
   inviteeName: string | null;
   /** Most artworks this invite may submit; null = no limit. */
   maxArtworks: number | null;
+  /** Where the artist follows their submission's review (the open call page). */
+  statusPath: string | null;
 };
 
 type SubmitExhibitionClientProps = {
@@ -683,7 +685,9 @@ export function SubmitExhibitionClient({
         count === 1 ? 'Artwork submitted successfully' : `${count} artworks submitted successfully`,
       );
       setTimeout(() => {
-        if (count === 1 && firstArtworkId) {
+        if (inviteContext?.statusPath) {
+          router.replace(`${inviteContext.statusPath}?submitted=1`);
+        } else if (count === 1 && firstArtworkId) {
           router.replace(`/artworks/${firstArtworkId}/certificate`);
         } else {
           router.replace('/artworks/my');
@@ -924,9 +928,10 @@ export function SubmitExhibitionClient({
         )}
         <p className="text-ink/55 text-sm mt-4 max-w-md mx-auto">
           Upload your artworks to receive Certificates of Authenticity.
+          {' '}The organiser reviews submissions and selects the works for the exhibition
           {inviteContext.issuesCertificateOfShow
-            ? ' The gallery will automatically receive linked Certificates of Show.'
-            : ' They will be added to the exhibition automatically.'}
+            ? '; selected works receive a linked Certificate of Show.'
+            : '.'}
         </p>
         {inviteContext.maxArtworks && (
           <p className="text-ink/70 text-sm mt-3">

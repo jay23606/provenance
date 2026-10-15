@@ -40,6 +40,7 @@ export async function getArtworkExhibition(artworkId: string): Promise<ArtworkEx
       )
     `)
     .eq('artwork_id', artworkId)
+    .eq('status', 'selected')
     .limit(1)
     .maybeSingle();
 

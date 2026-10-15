@@ -26,3 +26,12 @@ export function safeNextPath(next: string | null | undefined): string {
 
   return path;
 }
+
+/**
+ * A `next` value that is already a same-origin path, or null. For carrying a
+ * destination between auth screens and onboarding without a default.
+ */
+export function sanitizeNextPath(next: string | null | undefined): string | null {
+  if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return null;
+  return next;
+}
