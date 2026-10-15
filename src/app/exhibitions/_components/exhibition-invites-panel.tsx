@@ -209,6 +209,16 @@ export function ExhibitionInvitesPanel({
                     </p>
                     <p className="font-serif text-xs text-ink/50 truncate">
                       {invite.invitee_email}
+                      {invite.source === 'open_call' && (
+                        <span className="ml-2 rounded border border-wine/25 px-1.5 py-px text-[10px] uppercase tracking-wide text-wine/70">
+                          Open call
+                        </span>
+                      )}
+                      {invite.submitted_count > 0 && (
+                        <span className="ml-2 text-ink/45">
+                          {invite.submitted_count} submitted
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>

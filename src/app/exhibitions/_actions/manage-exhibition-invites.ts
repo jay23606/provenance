@@ -37,6 +37,8 @@ export type ExhibitionArtistInviteRow = {
   artist_account_id: string | null;
   status: string;
   max_artworks: number | null;
+  submitted_count: number;
+  source: string;
   expires_at: string;
   consumed_at: string | null;
   result_artwork_id: string | null;
@@ -333,7 +335,7 @@ export async function getExhibitionInvites(
   const { data, error } = await asUntyped(adminClient)
     .from('exhibition_artist_invites')
     .select(
-      'id, exhibition_id, invitee_email, invitee_name, artist_account_id, status, max_artworks, expires_at, consumed_at, result_artwork_id, result_cos_artwork_id, created_at',
+      'id, exhibition_id, invitee_email, invitee_name, artist_account_id, status, max_artworks, submitted_count, source, expires_at, consumed_at, result_artwork_id, result_cos_artwork_id, created_at',
     )
     .eq('exhibition_id', exhibitionId)
     .order('created_at', { ascending: false });

@@ -10,6 +10,8 @@ import {
   getExhibitionInvites,
   getUninvitedCreditedArtists,
 } from '../../_actions/manage-exhibition-invites';
+import { getExhibitionOpenCall } from '../../_actions/exhibition-open-call';
+import { ExhibitionOpenCallPanel } from '../../_components/exhibition-open-call-panel';
 
 import { asUntyped } from '~/lib/supabase-untyped';
 export const metadata = {
@@ -58,9 +60,10 @@ export default async function EditExhibitionPage({
     redirect('/exhibitions');
   }
 
-  const [invites, uninvitedArtists] = await Promise.all([
+  const [invites, uninvitedArtists, openCall] = await Promise.all([
     getExhibitionInvites(id),
     getUninvitedCreditedArtists(id),
+    getExhibitionOpenCall(id),
   ]);
 
   return (
@@ -75,6 +78,12 @@ export default async function EditExhibitionPage({
       </div>
 
       <ExhibitionForm exhibition={exhibition} />
+
+      <ExhibitionOpenCallPanel
+        exhibitionId={id}
+        openCall={openCall}
+        defaultClosingDate={exhibition.start_date?.slice(0, 10) ?? null}
+      />
 
       <ExhibitionInvitesPanel
         exhibitionId={id}
