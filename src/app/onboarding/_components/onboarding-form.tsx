@@ -42,7 +42,7 @@ const ROLE_OPTIONS = [
   icon: typeof Palette;
 }>;
 
-export function OnboardingForm() {
+export function OnboardingForm({ nextPath }: { nextPath?: string | null }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +62,12 @@ export function OnboardingForm() {
         await updateUserRole(role);
         gtmService.trackOnboardingComplete(role);
         router.refresh();
+        // Signed up mid-task (e.g. submitting to an open call): go straight
+        // back there; the Taco interview can wait.
+        if (nextPath) {
+          router.push(nextPath);
+          return;
+        }
         // Artists go to the Taco onboarding interview to collect CV,
         // sales history, medium, and goals before the first-certificate aha moment.
         // Collectors and galleries go straight to the certificate flow.

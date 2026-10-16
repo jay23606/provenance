@@ -32,6 +32,7 @@ export async function getArtworksFromGalleryExhibitions(galleryId: string, limit
     const { data: exhibitionArtworks, error: artworksError } = await asUntyped(client)
       .from('exhibition_artworks')
       .select('artwork_id')
+      .eq('status', 'selected')
       .in('exhibition_id', exhibitionIds);
 
     if (artworksError) {

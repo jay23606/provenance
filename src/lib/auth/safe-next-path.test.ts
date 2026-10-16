@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { safeNextPath } from './safe-next-path';
+import { safeNextPath, sanitizeNextPath } from './safe-next-path';
 
 describe('safeNextPath', () => {
   it('keeps same-origin paths', () => {
@@ -19,5 +19,19 @@ describe('safeNextPath', () => {
   it('defaults when missing', () => {
     expect(safeNextPath(null)).toBe('/artworks');
     expect(safeNextPath('')).toBe('/artworks');
+  });
+});
+
+describe('sanitizeNextPath', () => {
+  it('keeps same-origin paths', () => {
+    expect(sanitizeNextPath('/open-calls/spring-show')).toBe('/open-calls/spring-show');
+  });
+
+  it('returns null for missing, foreign or protocol-relative targets', () => {
+    expect(sanitizeNextPath(null)).toBeNull();
+    expect(sanitizeNextPath('')).toBeNull();
+    expect(sanitizeNextPath('https://evil.com/x')).toBeNull();
+    expect(sanitizeNextPath('//evil.com/x')).toBeNull();
+    expect(sanitizeNextPath('/\\evil.com')).toBeNull();
   });
 });

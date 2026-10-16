@@ -5,11 +5,18 @@ import { Trans } from '@kit/ui/trans';
 import { OnboardingForm } from './_components/onboarding-form';
 
 import { asUntyped } from '~/lib/supabase-untyped';
+import { sanitizeNextPath } from '~/lib/auth/safe-next-path';
 export const metadata = {
   title: 'Onboarding',
 };
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const nextPath = sanitizeNextPath((await searchParams).next);
+
   const client = asUntyped(getSupabaseServerClient());
   const { data: { user } } = await client.auth.getUser();
 
@@ -25,7 +32,7 @@ export default async function OnboardingPage() {
     .single();
 
   if (account?.public_data && (account.public_data as any).role) {
-    redirect('/');
+    redirect(nextPath ?? '/');
   }
 
   return (
@@ -41,7 +48,7 @@ export default async function OnboardingPage() {
         </div>
 
         <div className="mt-8 bg-white p-6 shadow-sm ring-1 ring-stone-200 sm:rounded-lg">
-          <OnboardingForm />
+          <OnboardingForm nextPath={nextPath} />
         </div>
       </div>
     </div>

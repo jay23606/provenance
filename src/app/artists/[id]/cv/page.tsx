@@ -88,6 +88,7 @@ export default async function ArtistCvPage({
         .select(
           `exhibition_id, exhibitions!exhibition_artworks_exhibition_id_fkey (id, title, start_date, end_date, location, published_at)`,
         )
+        .eq('status', 'selected')
         .in('artwork_id', artworkIds);
 
       const seen = new Set<string>();

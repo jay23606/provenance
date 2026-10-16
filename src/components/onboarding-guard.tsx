@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 
 import { asUntyped } from '~/lib/supabase-untyped';
+import { sanitizeNextPath } from '~/lib/auth/safe-next-path';
 export async function OnboardingGuard({ children }: { children: React.ReactNode }) {
   try {
     const headersList = await headers();
@@ -59,7 +60,10 @@ export async function OnboardingGuard({ children }: { children: React.ReactNode 
       const role = (account?.public_data as any)?.role;
 
       if (!role) {
-        redirect('/onboarding');
+        // Keep where they were headed (e.g. an open call) so onboarding can
+        // send them back once they've picked a role.
+        const next = sanitizeNextPath(pathname);
+        redirect(next && next !== '/' ? `/onboarding?next=${encodeURIComponent(next)}` : '/onboarding');
       }
     }
   } catch (error) {

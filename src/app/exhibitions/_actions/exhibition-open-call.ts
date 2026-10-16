@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { canManageExhibition } from '~/app/profiles/_actions/gallery-members';
 import { slugify } from '~/lib/slug';
 import {
+  emailsMatch,
   generateClaimToken,
   hashClaimToken,
   normalizeInviteEmail,
@@ -14,6 +15,10 @@ import {
 import { INVITE_TTL_MS } from '~/lib/certificate-claims/create-invite-batch';
 import { isOpenCallSubmissionExpired } from '~/app/open-calls/_lib/open-call-utils';
 import { parseMaxArtworksPerArtist } from '../_helpers/exhibition-invite-limits';
+import {
+  parseExhibitionArtworkStatus,
+  type ExhibitionArtworkStatus,
+} from '../_helpers/exhibition-submission-status';
 
 export type ExhibitionOpenCallSummary = {
   id: string;
@@ -286,4 +291,113 @@ export async function startOpenCallSubmission(
   });
   revalidatePath(`/exhibitions/${exhibition.id}/edit`);
   return { success: true, token };
+}
+
+export type MyOpenCallSubmission = {
+  artworkId: string;
+  title: string;
+  imageUrl: string | null;
+  status: ExhibitionArtworkStatus;
+  submittedAt: string;
+};
+
+export type MyOpenCallStatus = {
+  signedIn: boolean;
+  /** The viewer organises this exhibition (they review, not submit). */
+  isOrganiser: boolean;
+  /** False once the artist has finished submitting (invite consumed). */
+  canSubmit: boolean;
+  submissions: MyOpenCallSubmission[];
+};
+
+/**
+ * The signed-in artist's submissions to an exhibition and where each one
+ * stands in the organiser's review, for the open call page.
+ */
+export async function getMyOpenCallStatus(exhibitionId: string): Promise<MyOpenCallStatus> {
+  const client = asUntyped(getSupabaseServerClient());
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+  if (!user) return { signedIn: false, isOrganiser: false, canSubmit: true, submissions: [] };
+
+  const adminClient = asUntyped(getSupabaseServerAdminClient());
+  const { data: exhibition } = await adminClient
+    .from('exhibitions')
+    .select('gallery_id')
+    .eq('id', exhibitionId)
+    .maybeSingle();
+  if (exhibition && (await canManageExhibition(user.id, exhibition.gallery_id))) {
+    return { signedIn: true, isOrganiser: true, canSubmit: false, submissions: [] };
+  }
+
+  // Invites are matched by account or by email (direct invites may predate
+  // the artist's account). An exhibition has few invites, so filter here.
+  const { data: invites, error: invitesError } = await adminClient
+    .from('exhibition_artist_invites')
+    .select('id, status, artist_account_id, invitee_email')
+    .eq('exhibition_id', exhibitionId);
+  if (invitesError) {
+    console.error('[Exhibitions] getMyOpenCallStatus invites failed', invitesError);
+  }
+
+  const inviteRows = (
+    (invites ?? []) as Array<{
+      id: string;
+      status: string;
+      artist_account_id: string | null;
+      invitee_email: string;
+    }>
+  ).filter(
+    (i) =>
+      i.artist_account_id === user.id ||
+      (user.email ? emailsMatch(i.invitee_email, user.email) : false),
+  );
+  const canSubmit = !inviteRows.some((i) => i.status === 'consumed');
+  if (!inviteRows.length) return { signedIn: true, isOrganiser: false, canSubmit, submissions: [] };
+
+  const { data: links, error: linksError } = await adminClient
+    .from('exhibition_artworks')
+    .select('artwork_id, status, created_at')
+    .eq('exhibition_id', exhibitionId)
+    .in(
+      'submission_invite_id',
+      inviteRows.map((i) => i.id),
+    )
+    .order('created_at', { ascending: true });
+  if (linksError) {
+    console.error('[Exhibitions] getMyOpenCallStatus links failed', linksError);
+  }
+
+  const linkRows = (links ?? []) as Array<{ artwork_id: string; status: string; created_at: string }>;
+  if (!linkRows.length) return { signedIn: true, isOrganiser: false, canSubmit, submissions: [] };
+
+  const { data: artworks } = await adminClient
+    .from('artworks')
+    .select('id, title, image_url')
+    .in(
+      'id',
+      linkRows.map((l) => l.artwork_id),
+    );
+  const artworkById = new Map(
+    ((artworks ?? []) as Array<{ id: string; title: string | null; image_url: string | null }>).map(
+      (a) => [a.id, a],
+    ),
+  );
+
+  return {
+    signedIn: true,
+    isOrganiser: false,
+    canSubmit,
+    submissions: linkRows.map((l) => {
+      const artwork = artworkById.get(l.artwork_id);
+      return {
+        artworkId: l.artwork_id,
+        title: artwork?.title?.trim() || 'Untitled',
+        imageUrl: artwork?.image_url ?? null,
+        status: parseExhibitionArtworkStatus(l.status),
+        submittedAt: l.created_at,
+      };
+    }),
+  };
 }

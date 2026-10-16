@@ -3,6 +3,7 @@
 import { asUntyped } from '~/lib/supabase-untyped';
 import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { canManageExhibition } from '~/app/profiles/_actions/gallery-members';
+import { isShownInExhibition } from '../_helpers/exhibition-submission-status';
 
 export type Exhibition = {
   id: string;
@@ -169,6 +170,7 @@ export async function getExhibitionsForArtistAccount(
         )
       `,
       )
+      .eq('status', 'selected')
       .in('artwork_id', artworkIds);
 
     if (linkErr) {
@@ -264,14 +266,18 @@ export async function getExhibitionWithDetails(
     .eq('exhibition_id', exhibitionId);
   const { data: artworkLinks, error: linksError } = await asUntyped(client)
     .from('exhibition_artworks')
-    .select('artwork_id, exhibition_id')
+    .select('artwork_id, exhibition_id, status')
     .eq('exhibition_id', exhibitionId);
 
   if (linksError) {
     console.error('[Exhibitions] getExhibitionWithDetails: artwork links fetch failed', linksError);
   }
 
-  const linkedArtworkIds = (artworkLinks || []).map((l: { artwork_id: string }) => l.artwork_id).filter(Boolean);
+  // Submissions awaiting review (or declined) live in the organiser's review panel.
+  const linkedArtworkIds = (artworkLinks || [])
+    .filter((l: { status?: string }) => isShownInExhibition(l.status))
+    .map((l: { artwork_id: string }) => l.artwork_id)
+    .filter(Boolean);
   const linkOrder = new Map<string, number>(linkedArtworkIds.map((id: string, i: number) => [id, i]));
 
   let rawArtworkRows: Array<Record<string, unknown>> = [];

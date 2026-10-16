@@ -64,6 +64,7 @@ async function fetchExhibitionArtworks(
   const { data: linkRows, error: linkError } = await db
     .from('exhibition_artworks')
     .select('artwork_id')
+    .eq('status', 'selected')
     .in('exhibition_id', exhibitionIds);
 
   if (linkError) {

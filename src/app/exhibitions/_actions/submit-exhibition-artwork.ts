@@ -5,15 +5,13 @@ import { getSupabaseServerClient } from '@kit/supabase/server-client';
 import { getSupabaseServerAdminClient } from '@kit/supabase/server-admin-client';
 import { revalidatePath } from 'next/cache';
 import { createNotification } from '~/lib/notifications';
-import { CERTIFICATE_TYPES, USER_ROLES } from '~/lib/user-roles';
-import { ownerReceivesCertificateOfShow } from '../_helpers/exhibition-owner-roles';
+import { CERTIFICATE_TYPES } from '~/lib/user-roles';
 import {
   emailsMatch,
   hashClaimToken,
   normalizeInviteEmail,
 } from '~/lib/certificate-claims/tokens';
 import { generateCertificateNumber } from '~/lib/certificate-claims/insert-linked-certificate';
-import { insertLinkedCoSFromArtistCoa } from '~/lib/certificate-claims/insert-linked-cos-from-artist-coa';
 import {
   ARTWORKS_BUCKET,
   artworkImageUploader,
@@ -285,9 +283,6 @@ type SubmissionContext = {
   invite: InviteRow;
   exhibition: { id: string; gallery_id: string; title: string; owner_role: string };
   artistName: string;
-  /** Artist- or collector-run shows don't issue a Certificate of Show. */
-  issueCos: boolean;
-  galleryProfileId: string | null;
 };
 
 /** Signed-in invitee + valid invite + exhibition, shared by every submit path. */
@@ -338,21 +333,6 @@ async function loadSubmissionContext(
   const artistName =
     invite.invitee_name?.trim() || account?.name || user.email.split('@')[0] || 'Artist';
 
-  const ownerRole = exhibition.owner_role as string;
-  const galleryRole =
-    ownerRole === USER_ROLES.INSTITUTION ? USER_ROLES.INSTITUTION : USER_ROLES.GALLERY;
-  const issueCos = ownerReceivesCertificateOfShow(ownerRole);
-
-  const { data: galleryProfile } = issueCos
-    ? await adminClient
-        .from('user_profiles')
-        .select('id')
-        .eq('user_id', exhibition.gallery_id)
-        .eq('role', galleryRole)
-        .eq('is_active', true)
-        .maybeSingle()
-    : { data: null };
-
   return {
     client,
     adminClient,
@@ -360,8 +340,6 @@ async function loadSubmissionContext(
     invite,
     exhibition,
     artistName,
-    issueCos,
-    galleryProfileId: galleryProfile?.id ?? null,
   };
 }
 
@@ -403,7 +381,7 @@ async function finalizeInviteSubmission(
     sessionFirstCosId: string;
   },
 ): Promise<void> {
-  const { adminClient, user, invite, exhibition, artistName, issueCos } = ctx;
+  const { adminClient, user, invite, exhibition, artistName } = ctx;
   const { totalCount, firstTitle, sessionFirstCoaId, sessionFirstCosId } = params;
 
   await adminClient
@@ -422,11 +400,7 @@ async function finalizeInviteSubmission(
     totalCount === 1
       ? `Artwork submitted: ${firstTitle}`
       : `${totalCount} artworks submitted by ${artistName}`;
-  const notificationMessage = !issueCos
-    ? `${artistName} submitted ${totalCount === 1 ? 'artwork' : `${totalCount} artworks`} for "${exhibition.title}"${viaOpenCall}. ${totalCount === 1 ? 'It has' : 'They have'} been added to your exhibition.`
-    : totalCount === 1
-      ? `${artistName} submitted artwork for "${exhibition.title}"${viaOpenCall}. A Certificate of Show has been linked to your exhibition.`
-      : `${artistName} submitted ${totalCount} artworks for "${exhibition.title}"${viaOpenCall}. Certificates of Show have been linked to your exhibition.`;
+  const notificationMessage = `${artistName} submitted ${totalCount === 1 ? 'an artwork' : `${totalCount} artworks`} for "${exhibition.title}"${viaOpenCall}. Select the works you want to show from the exhibition's edit page; nothing is public until you do.`;
 
   try {
     await createNotification({
@@ -434,7 +408,7 @@ async function finalizeInviteSubmission(
       type: 'exhibition_artwork_submitted',
       title: notificationTitle,
       message: notificationMessage,
-      artworkId: sessionFirstCosId || sessionFirstCoaId || undefined,
+      artworkId: sessionFirstCoaId || undefined,
       relatedUserId: user.id,
       metadata: {
         exhibition_id: invite.exhibition_id,
@@ -448,14 +422,22 @@ async function finalizeInviteSubmission(
   }
 }
 
-async function creditArtistOnExhibition(ctx: SubmissionContext): Promise<void> {
-  const { error } = await ctx.adminClient.from('exhibition_artists').insert({
+/**
+ * Links a submitted CoA to the exhibition as 'submitted': only the organiser
+ * sees it until they select it (which also issues any Certificate of Show).
+ */
+async function insertSubmittedArtwork(ctx: SubmissionContext, coaId: string): Promise<boolean> {
+  const { error } = await ctx.adminClient.from('exhibition_artworks').insert({
     exhibition_id: ctx.invite.exhibition_id,
-    artist_account_id: ctx.user.id,
+    artwork_id: coaId,
+    status: 'submitted',
+    submission_invite_id: ctx.invite.id,
   });
-  if (error && error.code !== '23505') {
-    console.error('[Exhibitions] artist link failed', error);
+  if (error) {
+    console.error('[Exhibitions] submitted artwork link failed', { coaId, error });
+    return false;
   }
+  return true;
 }
 
 export type ExistingArtworkOption = {
@@ -542,7 +524,7 @@ export async function submitExistingArtworksToExhibition(
   try {
     const ctx = await loadSubmissionContext(token);
     if ('error' in ctx) return { success: false, error: ctx.error };
-    const { adminClient, user, invite, exhibition, issueCos, galleryProfileId } = ctx;
+    const { adminClient, user, invite } = ctx;
 
     const limitError = checkSubmissionLimit(invite, ids.length, options.totalArtworkCount);
     if (limitError) return { success: false, error: limitError };
@@ -569,40 +551,15 @@ export async function submitExistingArtworksToExhibition(
     }
 
     const coaIds: string[] = [];
-    let firstCosId = '';
-    for (const artwork of artworks as Array<Record<string, unknown> & { id: string; title: string }>) {
-      await adminClient.from('exhibition_artworks').insert({
-        exhibition_id: invite.exhibition_id,
-        artwork_id: artwork.id,
-      });
-      coaIds.push(artwork.id);
-
-      if (issueCos) {
-        try {
-          const { id: cosId } = await insertLinkedCoSFromArtistCoa(adminClient, artwork, {
-            galleryAccountId: exhibition.gallery_id,
-            createdByUserId: user.id,
-            galleryProfileId,
-          });
-          if (!firstCosId) firstCosId = cosId;
-          await adminClient.from('exhibition_artworks').insert({
-            exhibition_id: invite.exhibition_id,
-            artwork_id: cosId,
-          });
-        } catch (cosErr) {
-          console.error('[Exhibitions] existing artwork COS creation failed', cosErr, {
-            coaId: artwork.id,
-          });
-          return {
-            success: false,
-            error: `"${artwork.title}" was added but the gallery Certificate of Show failed; try again`,
-          };
-        }
+    for (const artwork of artworks as Array<{ id: string; title: string }>) {
+      if (!(await insertSubmittedArtwork(ctx, artwork.id))) {
+        await incrementSubmittedCount(adminClient, invite, coaIds.length);
+        return { success: false, error: `Could not submit "${artwork.title}"; try again` };
       }
+      coaIds.push(artwork.id);
     }
 
     await incrementSubmittedCount(adminClient, invite, coaIds.length);
-    await creditArtistOnExhibition(ctx);
 
     const firstCoaId = coaIds[0]!;
     if (options.finalize) {
@@ -610,7 +567,7 @@ export async function submitExistingArtworksToExhibition(
         totalCount: options.totalArtworkCount > 0 ? options.totalArtworkCount : coaIds.length,
         firstTitle: (artworks[0] as { title: string }).title,
         sessionFirstCoaId: firstCoaId,
-        sessionFirstCosId: firstCosId,
+        sessionFirstCosId: '',
       });
     }
 
@@ -619,7 +576,7 @@ export async function submitExistingArtworksToExhibition(
     console.log('[Exhibitions] submitExistingArtworksToExhibition succeeded', {
       count: coaIds.length,
     });
-    return { success: true, coaIds, firstCoaId, firstCosId };
+    return { success: true, coaIds, firstCoaId, firstCosId: '' };
   } catch (err) {
     console.error('[Exhibitions] submitExistingArtworksToExhibition failed', err);
     return { success: false, error: err instanceof Error ? err.message : 'Submission failed' };
@@ -642,8 +599,7 @@ export async function submitExhibitionArtwork(
     if ('error' in ctx) {
       return { success: false, error: ctx.error };
     }
-    const { client, adminClient, user, invite, exhibition, artistName, issueCos, galleryProfileId } = ctx;
-    const ownerRole = exhibition.owner_role;
+    const { client, adminClient, user, invite, exhibition, artistName } = ctx;
 
     const parsed = parseArtworkInputs(formData);
     if ('error' in parsed) {
@@ -665,9 +621,7 @@ export async function submitExhibitionArtwork(
     }
 
     const createdCoaIds: string[] = [];
-    const createdCosIds: string[] = [];
     let batchFirstCoaId = '';
-    let batchFirstCosId = '';
 
     for (let index = 0; index < artworks.length; index++) {
       const artwork = artworks[index];
@@ -789,10 +743,7 @@ export async function submitExhibitionArtwork(
       createdCoaIds.push(coaId);
       if (!batchFirstCoaId) batchFirstCoaId = coaId;
 
-      await asUntyped(adminClient).from('exhibition_artworks').insert({
-        exhibition_id: invite.exhibition_id,
-        artwork_id: coaId,
-      });
+      await insertSubmittedArtwork(ctx, coaId);
 
       for (const extraImage of extraImages) {
         try {
@@ -804,55 +755,16 @@ export async function submitExhibitionArtwork(
         }
       }
 
-      if (!issueCos) {
-        console.log('[Exhibitions] submitExhibitionArtwork artwork created', {
-          batchIndex: batch.batchIndex + 1,
-          index,
-          coaId,
-          ownerRole,
-        });
-        continue;
-      }
-
-      let cosArtworkId: string;
-      try {
-        const { id } = await insertLinkedCoSFromArtistCoa(adminClient, coaArtwork, {
-          galleryAccountId: exhibition.gallery_id,
-          createdByUserId: user.id,
-          galleryProfileId,
-        });
-        cosArtworkId = id;
-      } catch (cosErr) {
-        console.error('[Exhibitions] submitExhibitionArtwork COS creation failed', cosErr, {
-          index,
-          coaId,
-        });
-        return {
-          success: false,
-          error: `Artwork "${artwork.title}" saved but failed to create gallery Certificate of Show`,
-        };
-      }
-
-      createdCosIds.push(cosArtworkId);
-      if (!batchFirstCosId) batchFirstCosId = cosArtworkId;
-
-      await asUntyped(adminClient).from('exhibition_artworks').insert({
-        exhibition_id: invite.exhibition_id,
-        artwork_id: cosArtworkId,
-      });
-
-      console.log('[Exhibitions] submitExhibitionArtwork artwork created', {
+      console.log('[Exhibitions] submitExhibitionArtwork artwork submitted', {
         batchIndex: batch.batchIndex + 1,
         index,
         coaId,
-        cosArtworkId,
       });
     }
 
-    await creditArtistOnExhibition(ctx);
 
     const sessionFirstCoaId = batch.sessionFirstCoaId || batchFirstCoaId;
-    const sessionFirstCosId = batch.sessionFirstCosId || batchFirstCosId;
+    const sessionFirstCosId = batch.sessionFirstCosId;
 
     await incrementSubmittedCount(adminClient, invite, newInBatch);
 
@@ -871,11 +783,8 @@ export async function submitExhibitionArtwork(
     revalidatePath(`/exhibitions/${invite.exhibition_id}/edit`);
     revalidatePath('/artworks/my');
 
-    for (let i = 0; i < createdCoaIds.length; i++) {
-      revalidatePath(`/artworks/${createdCoaIds[i]}/certificate`);
-      if (createdCosIds[i]) {
-        revalidatePath(`/artworks/${createdCosIds[i]}/certificate`);
-      }
+    for (const coaId of createdCoaIds) {
+      revalidatePath(`/artworks/${coaId}/certificate`);
     }
 
     console.log('[Exhibitions] submitExhibitionArtwork batch succeeded', {
@@ -889,7 +798,7 @@ export async function submitExhibitionArtwork(
     return {
       success: true,
       artworkId: sessionFirstCoaId || batchFirstCoaId,
-      cosArtworkId: sessionFirstCosId || batchFirstCosId,
+      cosArtworkId: sessionFirstCosId,
       count: batch.totalArtworkCount > 0 ? batch.totalArtworkCount : artworks.length,
       finalized: batch.finalize,
       coaIds: createdCoaIds,

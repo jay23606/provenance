@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from 'react';
 import { CheckCircledIcon } from '@radix-ui/react-icons';
 
 import { useSignUpWithEmailPasswordAndUsername } from '../_hooks/use-sign-up-with-email-password-username';
+import { useAuthNextPath } from '../_hooks/use-auth-next-path';
 import { Alert, AlertDescription, AlertTitle } from '@kit/ui/alert';
 import { If } from '@kit/ui/if';
 import { Trans } from '@kit/ui/trans';
@@ -35,6 +36,7 @@ export function CustomEmailPasswordSignUpContainer({
   displayTermsCheckbox,
 }: CustomEmailPasswordSignUpContainerProps) {
   const signUpMutation = useSignUpWithEmailPasswordAndUsername();
+  const nextPath = useAuthNextPath();
   const redirecting = useRef(false);
   const [showVerifyEmailAlert, setShowVerifyEmailAlert] = useState(false);
 
@@ -49,7 +51,11 @@ export function CustomEmailPasswordSignUpContainer({
       // Build the full confirm URL here in the browser so window.location.origin
       // is always available (the sign-up page is a Server Component and the old
       // window-check there always produced an empty string).
-      const emailRedirectTo = new URL(emailRedirectPath, window.location.origin).href;
+      // /auth/confirm sends the confirmed user on to `next` (e.g. the open
+      // call they were about to submit to).
+      const redirectUrl = new URL(emailRedirectPath, window.location.origin);
+      if (nextPath) redirectUrl.searchParams.set('next', nextPath);
+      const emailRedirectTo = redirectUrl.href;
 
       try {
         const data = await signUpMutation.mutateAsync({
@@ -70,6 +76,7 @@ export function CustomEmailPasswordSignUpContainer({
     },
     [
       emailRedirectPath,
+      nextPath,
       loading,
       onSignUp,
       signUpMutation,

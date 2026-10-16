@@ -153,8 +153,8 @@ export function ExhibitionInvitesPanel({
           Upload invitations
         </h2>
         <p className="text-ink/55 font-serif text-sm mt-2 max-w-2xl">
-          Track artists invited to upload work. When they submit, their Certificate of
-          Authenticity and your Certificate of Show are linked to this exhibition.
+          Track artists invited to upload work. Their submissions wait for your review
+          below; nothing joins the exhibition until you select it.
         </p>
       </div>
 

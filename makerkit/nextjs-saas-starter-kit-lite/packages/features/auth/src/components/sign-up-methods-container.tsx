@@ -56,7 +56,7 @@ export function SignUpMethodsContainer(props: {
           shouldCreateUser={true}
           paths={{
             callback: props.paths.callback,
-            returnPath: props.paths.appHome,
+            returnPath: getReturnPath(props.paths.appHome),
           }}
         />
       </If>
@@ -142,4 +142,19 @@ function getDefaultValues() {
   return {
     email: searchParams.get('email') ?? '',
   };
+}
+
+/** Where OAuth sign-up lands: the `next` the visitor arrived with, else home. */
+function getReturnPath(appHome: string) {
+  if (!isBrowser()) {
+    return appHome;
+  }
+
+  const next = new URLSearchParams(window.location.search).get('next');
+
+  if (next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\')) {
+    return next;
+  }
+
+  return appHome;
 }
